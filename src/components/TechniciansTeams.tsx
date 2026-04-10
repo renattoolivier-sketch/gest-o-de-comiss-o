@@ -105,6 +105,92 @@ export default function TechniciansTeams({
           <p className="text-muted-foreground">Gerencie sua força de trabalho e organize as equipes.</p>
         </div>
         <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger render={<Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" />}>
+              <RefreshCcw className="w-4 h-4 mr-2" /> Configurar Banco
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Configuração do Banco de Dados (Supabase)</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800 flex gap-3">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  <div>
+                    <p className="font-bold mb-1">Atenção!</p>
+                    <p>Se você não está vendo seus dados, certifique-se de que as tabelas foram criadas no Supabase SQL Editor.</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Script SQL para Criar Tabelas:</Label>
+                  <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
+                    <pre>{`
+-- 1. Tabela de Usuários
+CREATE TABLE IF NOT EXISTS app_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'viewer',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Tabela de Técnicos
+CREATE TABLE IF NOT EXISTS technicians (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  salaryBase NUMERIC NOT NULL,
+  role TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Tabela de Equipes
+CREATE TABLE IF NOT EXISTS teams (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  leaderId TEXT REFERENCES technicians(id),
+  memberIds TEXT[] NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 4. Tabela de Ordens de Serviço
+CREATE TABLE IF NOT EXISTS service_orders (
+  protocol TEXT PRIMARY KEY,
+  responsibleId TEXT NOT NULL,
+  isTeam BOOLEAN NOT NULL,
+  openingDate TEXT NOT NULL,
+  originalOpeningDate TEXT,
+  isDelayed BOOLEAN DEFAULT FALSE,
+  closingDate TEXT,
+  status TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Tabela de SLA Mensal
+CREATE TABLE IF NOT EXISTS monthly_sla (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  month TEXT NOT NULL,
+  tech_id TEXT NOT NULL,
+  value NUMERIC NOT NULL,
+  UNIQUE(month, tech_id)
+);
+
+-- 6. Habilitar Realtime (Sincronização em Tempo Real)
+-- Execute estas linhas para que todos os usuários vejam as mudanças na hora
+ALTER PUBLICATION supabase_realtime ADD TABLE technicians;
+ALTER PUBLICATION supabase_realtime ADD TABLE teams;
+ALTER PUBLICATION supabase_realtime ADD TABLE service_orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE monthly_sla;
+ALTER PUBLICATION supabase_realtime ADD TABLE app_users;
+                    `}</pre>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  * Copie o código acima, vá ao seu projeto no Supabase, clique em "SQL Editor" e execute-o.
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isTechDialogOpen} onOpenChange={setIsTechDialogOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
               <UserPlus className="w-4 h-4 mr-2" /> Novo Técnico

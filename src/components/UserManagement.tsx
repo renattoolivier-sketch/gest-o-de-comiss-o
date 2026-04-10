@@ -43,6 +43,18 @@ export default function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
+
+    // Real-time synchronization for users
+    const channel = supabase
+      .channel('users-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
+        fetchUsers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleAddUser = async () => {

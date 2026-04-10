@@ -12,7 +12,7 @@ import Commissions from './components/Commissions';
 import MonthlySpreadsheet from './components/MonthlySpreadsheet';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
-import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from './lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('telecom_user');
     return saved ? JSON.parse(saved) : null;
@@ -53,6 +54,15 @@ export default function App() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+        // Check if Supabase is configured
+        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          setDbError('Configuração do Supabase ausente. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+          setIsOnline(false);
+          loadFallbackData();
+          setIsLoading(false);
+          return;
+        }
+
         // 0. Ensure master admin exists
         try {
           const { data: adminExists, error: adminError } = await supabase
@@ -81,6 +91,12 @@ export default function App() {
         const { data: slaData, error: slaError } = await supabase.from('monthly_sla').select('*');
 
         if (techError || teamError || orderError || slaError) {
+          console.error('Supabase fetch error:', { techError, teamError, orderError, slaError });
+          if (techError?.message.includes('relation "technicians" does not exist')) {
+            setDbError('As tabelas do banco de dados não foram criadas no Supabase. Por favor, execute o script SQL de configuração.');
+          } else {
+            setDbError(`Erro ao conectar ao Supabase: ${techError?.message || 'Erro desconhecido'}`);
+          }
           throw new Error('Supabase fetch failed');
         }
 
@@ -139,6 +155,18 @@ export default function App() {
     fetchData();
   }, []);
 
+  const loadFallbackData = () => {
+    const savedTechs = localStorage.getItem('telecom_techs');
+    const savedTeams = localStorage.getItem('telecom_teams');
+    const savedOrders = localStorage.getItem('telecom_orders');
+    const savedSla = localStorage.getItem('telecom_monthly_sla');
+
+    setTechnicians(savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS);
+    setTeams(savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS);
+    setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS);
+    setMonthlySla(savedSla ? JSON.parse(savedSla) : {});
+  };
+
   const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any) => {
     try {
       // Insert technicians
@@ -193,6 +221,81 @@ export default function App() {
       setIsOnline(false);
     }
   };
+
+  // Real-time synchronization
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const channels = [
+      supabase
+        .channel('technicians-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'technicians' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setTechnicians(prev => {
+              if (prev.find(t => t.id === payload.new.id)) return prev;
+              return [...prev, payload.new as Technician];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setTechnicians(prev => prev.map(t => t.id === payload.new.id ? payload.new as Technician : t));
+          } else if (payload.eventType === 'DELETE') {
+            setTechnicians(prev => prev.filter(t => t.id !== payload.old.id));
+          }
+        })
+        .subscribe(),
+
+      supabase
+        .channel('teams-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setTeams(prev => {
+              if (prev.find(t => t.id === payload.new.id)) return prev;
+              return [...prev, payload.new as Team];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setTeams(prev => prev.map(t => t.id === payload.new.id ? payload.new as Team : t));
+          } else if (payload.eventType === 'DELETE') {
+            setTeams(prev => prev.filter(t => t.id !== payload.old.id));
+          }
+        })
+        .subscribe(),
+
+      supabase
+        .channel('orders-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setOrders(prev => {
+              if (prev.find(o => o.protocol === payload.new.protocol)) return prev;
+              return [...prev, payload.new as ServiceOrder];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setOrders(prev => prev.map(o => o.protocol === payload.new.protocol ? payload.new as ServiceOrder : o));
+          } else if (payload.eventType === 'DELETE') {
+            setOrders(prev => prev.filter(o => o.protocol !== payload.old.protocol));
+          }
+        })
+        .subscribe(),
+
+      supabase
+        .channel('sla-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_sla' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const item = payload.new;
+            setMonthlySla(prev => ({
+              ...prev,
+              [item.month]: {
+                ...(prev[item.month] || {}),
+                [item.tech_id]: item.value
+              }
+            }));
+          }
+        })
+        .subscribe()
+    ];
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [isOnline]);
 
   // Sync with LocalStorage as backup
   useEffect(() => {
@@ -362,6 +465,12 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-slate-800">Infolink <span className="text-purple-600">Ultra Internet</span></h1>
           </div>
           <div className="flex items-center gap-4">
+            {dbError && (
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-bold text-rose-600 uppercase">
+                <AlertCircle className="w-3 h-3" />
+                {dbError.length > 40 ? dbError.substring(0, 40) + '...' : dbError}
+              </div>
+            )}
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border text-[10px] font-bold uppercase tracking-wider">
               {isOnline ? (
                 <>
