@@ -187,12 +187,21 @@ CREATE TABLE IF NOT EXISTS system_backups (
 
 -- 7. Habilitar Realtime (Sincronização em Tempo Real)
 -- Execute estas linhas para que todos os usuários vejam as mudanças na hora
-ALTER PUBLICATION supabase_realtime ADD TABLE technicians;
-ALTER PUBLICATION supabase_realtime ADD TABLE teams;
-ALTER PUBLICATION supabase_realtime ADD TABLE service_orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE monthly_sla;
-ALTER PUBLICATION supabase_realtime ADD TABLE app_users;
-ALTER PUBLICATION supabase_realtime ADD TABLE system_backups;
+-- IMPORTANTE: Certifique-se de que o RLS (Row Level Security) está desativado 
+-- ou que existem políticas de acesso configuradas para as tabelas.
+BEGIN;
+  -- Remove a publicação se já existir para evitar erros
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  
+  -- Cria a publicação para todas as tabelas necessárias
+  CREATE PUBLICATION supabase_realtime FOR TABLE 
+    technicians, 
+    teams, 
+    service_orders, 
+    monthly_sla, 
+    app_users, 
+    system_backups;
+COMMIT;
                     `}</pre>
                   </div>
                 </div>

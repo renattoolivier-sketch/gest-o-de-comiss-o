@@ -12,7 +12,7 @@ import Commissions from './components/Commissions';
 import MonthlySpreadsheet from './components/MonthlySpreadsheet';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
-import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from './lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -50,110 +50,104 @@ export default function App() {
   });
 
   // Load initial data from Supabase or LocalStorage
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      // Check if Supabase is configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        setDbError('Configuração do Supabase ausente. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+        setIsOnline(false);
+        loadFallbackData();
+        if (showLoading) setIsLoading(false);
+        return;
+      }
+
+      // 0. Ensure master admin exists
       try {
-        // Check if Supabase is configured
-        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-          setDbError('Configuração do Supabase ausente. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
-          setIsOnline(false);
-          loadFallbackData();
-          setIsLoading(false);
-          return;
+        const { data: adminExists, error: adminError } = await supabase
+          .from('app_users')
+          .select('id')
+          .eq('username', 'renato')
+          .maybeSingle();
+
+        if (!adminExists && !adminError) {
+          await supabase.from('app_users').insert([
+            {
+              username: 'renato',
+              password: 'Rog@32604509',
+              role: 'admin'
+            }
+          ]);
         }
+      } catch (e) {
+        console.error('Error checking/creating master admin:', e);
+      }
 
-        // 0. Ensure master admin exists
-        try {
-          const { data: adminExists, error: adminError } = await supabase
-            .from('app_users')
-            .select('id')
-            .eq('username', 'renato')
-            .maybeSingle();
+      // 1. Try to fetch from Supabase
+      const { data: techData, error: techError } = await supabase.from('technicians').select('*');
+      const { data: teamData, error: teamError } = await supabase.from('teams').select('*');
+      const { data: orderData, error: orderError } = await supabase.from('service_orders').select('*');
+      const { data: slaData, error: slaError } = await supabase.from('monthly_sla').select('*');
 
-          if (!adminExists && !adminError) {
-            await supabase.from('app_users').insert([
-              {
-                username: 'renato',
-                password: 'Rog@32604509',
-                role: 'admin'
-              }
-            ]);
-          }
-        } catch (e) {
-          console.error('Error checking/creating master admin:', e);
-        }
-
-        // 1. Try to fetch from Supabase
-        const { data: techData, error: techError } = await supabase.from('technicians').select('*');
-        const { data: teamData, error: teamError } = await supabase.from('teams').select('*');
-        const { data: orderData, error: orderError } = await supabase.from('service_orders').select('*');
-        const { data: slaData, error: slaError } = await supabase.from('monthly_sla').select('*');
-
-        if (techError || teamError || orderError || slaError) {
-          console.error('Supabase fetch error:', { techError, teamError, orderError, slaError });
-          if (techError?.message.includes('relation "technicians" does not exist')) {
-            setDbError('As tabelas do banco de dados não foram criadas no Supabase. Por favor, execute o script SQL de configuração.');
-          } else {
-            setDbError(`Erro ao conectar ao Supabase: ${techError?.message || 'Erro desconhecido'}`);
-          }
-          throw new Error('Supabase fetch failed');
-        }
-
-        // 2. If Supabase has data, use it
-        if (techData && techData.length > 0) {
-          setTechnicians(techData);
-          setTeams(teamData || []);
-          setOrders(orderData || []);
-          
-          // Reconstruct SLA object
-          const slaObj: Record<string, Record<string, number>> = {};
-          slaData?.forEach(item => {
-            if (!slaObj[item.month]) slaObj[item.month] = {};
-            slaObj[item.month][item.tech_id] = item.value;
-          });
-          setMonthlySla(slaObj);
-          setIsOnline(true);
+      if (techError || teamError || orderError || slaError) {
+        console.error('Supabase fetch error:', { techError, teamError, orderError, slaError });
+        if (techError?.message.includes('relation "technicians" does not exist')) {
+          setDbError('As tabelas do banco de dados não foram criadas no Supabase. Por favor, execute o script SQL de configuração.');
         } else {
-          // 3. If Supabase is empty, check LocalStorage for migration
-          const savedTechs = localStorage.getItem('telecom_techs');
-          const savedTeams = localStorage.getItem('telecom_teams');
-          const savedOrders = localStorage.getItem('telecom_orders');
-          const savedSla = localStorage.getItem('telecom_monthly_sla');
+          setDbError(`Erro ao conectar ao Supabase: ${techError?.message || 'Erro desconhecido'}`);
+        }
+        throw new Error('Supabase fetch failed');
+      }
 
-          const initialTechs = savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS;
-          const initialTeams = savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS;
-          const initialOrders = savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS;
-          const initialSla = savedSla ? JSON.parse(savedSla) : {};
+      // 2. Use Supabase data (even if some tables are empty)
+      setTechnicians(techData || []);
+      setTeams(teamData || []);
+      setOrders(orderData || []);
+      
+      // Reconstruct SLA object
+      const slaObj: Record<string, Record<string, number>> = {};
+      slaData?.forEach(item => {
+        if (!slaObj[item.month]) slaObj[item.month] = {};
+        slaObj[item.month][item.tech_id] = item.value;
+      });
+      setMonthlySla(slaObj);
+      setIsOnline(true);
+      setDbError(null);
 
+      // 3. If everything is empty, it might be a new setup, so we could migrate mock data
+      if ((!techData || techData.length === 0) && (!orderData || orderData.length === 0)) {
+        const savedTechs = localStorage.getItem('telecom_techs');
+        if (savedTechs) {
+          // Migrate existing local data if any
+          const initialTechs = JSON.parse(savedTechs);
+          const initialTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
+          const initialOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
+          const initialSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
+          
           setTechnicians(initialTechs);
           setTeams(initialTeams);
           setOrders(initialOrders);
           setMonthlySla(initialSla);
-
-          // 4. Migrate to Supabase if we have data
           await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla);
         }
-      } catch (error) {
-        console.error('Error fetching data from Supabase:', error);
-        setIsOnline(false);
-        // Fallback to LocalStorage
-        const savedTechs = localStorage.getItem('telecom_techs');
-        const savedTeams = localStorage.getItem('telecom_teams');
-        const savedOrders = localStorage.getItem('telecom_orders');
-        const savedSla = localStorage.getItem('telecom_monthly_sla');
-
-        setTechnicians(savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS);
-        setTeams(savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS);
-        setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS);
-        setMonthlySla(savedSla ? JSON.parse(savedSla) : {});
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    fetchData();
+    } catch (error) {
+      console.error('Error fetching data from Supabase:', error);
+      setIsOnline(false);
+      loadFallbackData();
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    // Auto-refresh when window gains focus
+    const handleFocus = () => fetchData(false);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchData]);
 
   const loadFallbackData = () => {
     const savedTechs = localStorage.getItem('telecom_techs');
@@ -241,7 +235,7 @@ export default function App() {
             setTechnicians(prev => prev.filter(t => t.id !== payload.old.id));
           }
         })
-        .subscribe(),
+        .subscribe((status) => console.log('Technicians channel status:', status)),
 
       supabase
         .channel('teams-changes')
@@ -257,7 +251,7 @@ export default function App() {
             setTeams(prev => prev.filter(t => t.id !== payload.old.id));
           }
         })
-        .subscribe(),
+        .subscribe((status) => console.log('Teams channel status:', status)),
 
       supabase
         .channel('orders-changes')
@@ -273,7 +267,7 @@ export default function App() {
             setOrders(prev => prev.filter(o => o.protocol !== payload.old.protocol));
           }
         })
-        .subscribe(),
+        .subscribe((status) => console.log('Orders channel status:', status)),
 
       supabase
         .channel('sla-changes')
@@ -289,7 +283,9 @@ export default function App() {
             }));
           }
         })
-        .subscribe()
+        .subscribe((status) => {
+          console.log('SLA channel status:', status);
+        })
     ];
 
     return () => {
@@ -543,6 +539,14 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-slate-800">Infolink <span className="text-purple-600">Ultra Internet</span></h1>
           </div>
           <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fetchData(true)}
+              className="hidden md:flex items-center gap-2 border-purple-200 text-purple-700 hover:bg-purple-50 h-8 text-[10px] font-bold uppercase"
+            >
+              <RefreshCcw className="w-3 h-3" /> Sincronizar
+            </Button>
             {dbError && (
               <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-bold text-rose-600 uppercase">
                 <AlertCircle className="w-3 h-3" />
