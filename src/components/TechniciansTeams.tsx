@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Technician, Team, ServiceOrder, UserRole } from '@/src/types';
-import { Users, UserPlus, User, Trash2, Shield, History, Plus, CheckCircle2, ListFilter, Calendar, RefreshCcw, AlertCircle } from 'lucide-react';
+import { Users, UserPlus, User, Trash2, Shield, History, Plus, CheckCircle2, ListFilter, Calendar, RefreshCcw, AlertCircle, Pencil } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 
 interface TechniciansTeamsProps {
@@ -37,6 +37,8 @@ export default function TechniciansTeams({
 }: TechniciansTeamsProps) {
   const [isTechDialogOpen, setIsTechDialogOpen] = useState(false);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
+  const [editingTechnician, setEditingTechnician] = useState<Technician | null>(null);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [selectedTechHistory, setSelectedTechHistory] = useState<Technician | null>(null);
   const [selectedTechDaily, setSelectedTechDaily] = useState<Technician | null>(null);
 
@@ -51,28 +53,64 @@ export default function TechniciansTeams({
   const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
 
   const handleAddTech = () => {
-    onAddTechnician({
-      id: crypto.randomUUID(),
-      name: techName,
-      salaryBase: parseFloat(techSalary),
-      role: techRole
-    });
+    if (editingTechnician) {
+      onUpdateTechnician({
+        ...editingTechnician,
+        name: techName,
+        salaryBase: parseFloat(techSalary),
+        role: techRole
+      });
+    } else {
+      onAddTechnician({
+        id: crypto.randomUUID(),
+        name: techName,
+        salaryBase: parseFloat(techSalary),
+        role: techRole
+      });
+    }
     setTechName('');
     setTechSalary('');
+    setEditingTechnician(null);
     setIsTechDialogOpen(false);
   };
 
+  const handleEditTech = (tech: Technician) => {
+    setEditingTechnician(tech);
+    setTechName(tech.name);
+    setTechSalary(tech.salaryBase.toString());
+    setTechRole(tech.role);
+    setIsTechDialogOpen(true);
+  };
+
   const handleAddTeam = () => {
-    onAddTeam({
-      id: crypto.randomUUID(),
-      name: teamName,
-      leaderId: teamLeaderId,
-      memberIds: teamMemberIds
-    });
+    if (editingTeam) {
+      onUpdateTeam({
+        ...editingTeam,
+        name: teamName,
+        leaderId: teamLeaderId,
+        memberIds: teamMemberIds
+      });
+    } else {
+      onAddTeam({
+        id: crypto.randomUUID(),
+        name: teamName,
+        leaderId: teamLeaderId,
+        memberIds: teamMemberIds
+      });
+    }
     setTeamName('');
     setTeamLeaderId('');
     setTeamMemberIds([]);
+    setEditingTeam(null);
     setIsTeamDialogOpen(false);
+  };
+
+  const handleEditTeam = (team: Team) => {
+    setEditingTeam(team);
+    setTeamName(team.name);
+    setTeamLeaderId(team.leaderId);
+    setTeamMemberIds(team.memberIds);
+    setIsTeamDialogOpen(true);
   };
 
   const getTechHistory = (techId: string) => {
@@ -211,13 +249,20 @@ COMMIT;
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={isTechDialogOpen} onOpenChange={setIsTechDialogOpen}>
+          <Dialog open={isTechDialogOpen} onOpenChange={(open) => {
+            setIsTechDialogOpen(open);
+            if (!open) {
+              setEditingTechnician(null);
+              setTechName('');
+              setTechSalary('');
+            }
+          }}>
             <DialogTrigger render={<Button variant="outline" />}>
               <UserPlus className="w-4 h-4 mr-2" /> Novo Técnico
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Cadastrar Novo Técnico</DialogTitle>
+                <DialogTitle>{editingTechnician ? 'Editar Técnico' : 'Cadastrar Novo Técnico'}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -244,18 +289,28 @@ COMMIT;
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddTech} className="bg-purple-600 hover:bg-purple-700">Cadastrar</Button>
+                <Button onClick={handleAddTech} className="bg-purple-600 hover:bg-purple-700">
+                  {editingTechnician ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
+          <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+            setIsTeamDialogOpen(open);
+            if (!open) {
+              setEditingTeam(null);
+              setTeamName('');
+              setTeamLeaderId('');
+              setTeamMemberIds([]);
+            }
+          }}>
             <DialogTrigger render={<Button className="bg-purple-600 hover:bg-purple-700" />}>
               <Users className="w-4 h-4 mr-2" /> Nova Equipe
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>Formar Nova Equipe</DialogTitle>
+                <DialogTitle>{editingTeam ? 'Editar Equipe' : 'Formar Nova Equipe'}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -292,7 +347,9 @@ COMMIT;
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddTeam} className="bg-purple-600 hover:bg-purple-700">Criar Equipe</Button>
+                <Button onClick={handleAddTeam} className="bg-purple-600 hover:bg-purple-700">
+                  {editingTeam ? 'Salvar Alterações' : 'Criar Equipe'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -337,6 +394,9 @@ COMMIT;
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditTech(tech)} className="h-8 w-8 text-amber-600">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => setSelectedTechHistory(tech)} className="h-8 w-8 text-purple-600">
                           <History className="h-4 w-4" />
                         </Button>
@@ -372,9 +432,14 @@ COMMIT;
                         <h4 className="font-bold text-purple-600">{team.name}</h4>
                         <p className="text-xs text-muted-foreground">Líder: {technicians.find(t => t.id === team.leaderId)?.name || 'N/A'}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => onDeleteTeam(team.id)} className="h-8 w-8 text-rose-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)} className="h-8 w-8 text-amber-600">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => onDeleteTeam(team.id)} className="h-8 w-8 text-rose-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {team.memberIds.map(mid => {
