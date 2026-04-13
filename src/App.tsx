@@ -419,10 +419,10 @@ export default function App() {
     setIsLoading(true);
     try {
       // Clear Supabase tables
-      await supabase.from('monthly_sla').delete().neq('id', 0); // Delete all
-      await supabase.from('service_orders').delete().neq('protocol', ''); // Delete all
-      await supabase.from('teams').delete().neq('id', ''); // Delete all
-      await supabase.from('technicians').delete().neq('id', ''); // Delete all
+      await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      await supabase.from('service_orders').delete().neq('protocol', ''); 
+      await supabase.from('teams').delete().neq('id', ''); 
+      await supabase.from('technicians').delete().neq('id', ''); 
 
       // Clear LocalStorage
       localStorage.clear();
@@ -432,6 +432,84 @@ export default function App() {
     } catch (error) {
       console.error('Error resetting data:', error);
       alert('Erro ao resetar dados no Supabase. Verifique sua conexão.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveBackup = async () => {
+    try {
+      const backupData = {
+        technicians,
+        teams,
+        orders,
+        monthlySla,
+        timestamp: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('system_backups')
+        .insert([{ data: backupData }]);
+
+      if (error) {
+        if (error.message.includes('relation "system_backups" does not exist')) {
+          alert('A tabela "system_backups" não existe. Por favor, execute o script SQL atualizado no botão "Configurar Banco".');
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      alert('Backup realizado com sucesso!');
+    } catch (error) {
+      console.error('Error saving backup:', error);
+      alert('Erro ao salvar backup no Supabase.');
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!confirm('Tem certeza que deseja restaurar o último backup? Isso substituirá todos os dados atuais.')) return;
+
+    setIsLoading(true);
+    try {
+      const { data: backupList, error: fetchError } = await supabase
+        .from('system_backups')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+      if (!backupList || backupList.length === 0) {
+        alert('Nenhum backup encontrado.');
+        return;
+      }
+
+      const backup = backupList[0].data;
+
+      // Clear current data first
+      await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('service_orders').delete().neq('protocol', '');
+      await supabase.from('teams').delete().neq('id', '');
+      await supabase.from('technicians').delete().neq('id', '');
+
+      // Restore data
+      if (backup.technicians.length > 0) await supabase.from('technicians').insert(backup.technicians);
+      if (backup.teams.length > 0) await supabase.from('teams').insert(backup.teams);
+      if (backup.orders.length > 0) await supabase.from('service_orders').insert(backup.orders);
+      
+      const slaEntries: any[] = [];
+      Object.entries(backup.monthlySla).forEach(([month, techs]: [string, any]) => {
+        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+          slaEntries.push({ month, tech_id: techId, value });
+        });
+      });
+      if (slaEntries.length > 0) await supabase.from('monthly_sla').insert(slaEntries);
+
+      alert('Backup restaurado com sucesso! A página será recarregada.');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      alert('Erro ao restaurar backup. Verifique se a tabela "system_backups" existe.');
     } finally {
       setIsLoading(false);
     }
@@ -549,6 +627,8 @@ export default function App() {
               onUpdateTeam={handleUpdateTeam}
               onDeleteTeam={handleDeleteTeam}
               onResetData={handleResetData}
+              onSaveBackup={handleSaveBackup}
+              onRestoreBackup={handleRestoreBackup}
               userRole={user.role}
             />
           </TabsContent>

@@ -24,13 +24,16 @@ interface TechniciansTeamsProps {
   onUpdateTeam: (team: Team) => void;
   onDeleteTeam: (id: string) => void;
   onResetData: () => void;
+  onSaveBackup: () => void;
+  onRestoreBackup: () => void;
   userRole?: UserRole;
 }
 
 export default function TechniciansTeams({ 
   technicians, teams, orders,
   onAddTechnician, onUpdateTechnician, onDeleteTechnician,
-  onAddTeam, onUpdateTeam, onDeleteTeam, onResetData 
+  onAddTeam, onUpdateTeam, onDeleteTeam, onResetData,
+  onSaveBackup, onRestoreBackup
 }: TechniciansTeamsProps) {
   const [isTechDialogOpen, setIsTechDialogOpen] = useState(false);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
@@ -175,13 +178,21 @@ CREATE TABLE IF NOT EXISTS monthly_sla (
   UNIQUE(month, tech_id)
 );
 
--- 6. Habilitar Realtime (Sincronização em Tempo Real)
+-- 6. Tabela de Backups do Sistema
+CREATE TABLE IF NOT EXISTS system_backups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  data JSONB NOT NULL
+);
+
+-- 7. Habilitar Realtime (Sincronização em Tempo Real)
 -- Execute estas linhas para que todos os usuários vejam as mudanças na hora
 ALTER PUBLICATION supabase_realtime ADD TABLE technicians;
 ALTER PUBLICATION supabase_realtime ADD TABLE teams;
 ALTER PUBLICATION supabase_realtime ADD TABLE service_orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE monthly_sla;
 ALTER PUBLICATION supabase_realtime ADD TABLE app_users;
+ALTER PUBLICATION supabase_realtime ADD TABLE system_backups;
                     `}</pre>
                   </div>
                 </div>
@@ -393,9 +404,25 @@ ALTER PUBLICATION supabase_realtime ADD TABLE app_users;
               </p>
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button 
+              variant="outline" 
+              className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+              onClick={onSaveBackup}
+            >
+              <Shield className="w-4 h-4 mr-2" /> Salvar Backup das Configurações
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+              onClick={onRestoreBackup}
+            >
+              <History className="w-4 h-4 mr-2" /> Restaurar Último Salvamento
+            </Button>
+          </div>
           <Button 
             variant="destructive" 
-            className="w-full md:w-auto"
+            className="w-full"
             onClick={() => {
               if (confirm("Tem certeza que deseja apagar todos os dados e restaurar o sistema? Esta ação apagará os dados do Supabase e do LocalStorage.")) {
                 onResetData();

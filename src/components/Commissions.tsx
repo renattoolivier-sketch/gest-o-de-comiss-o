@@ -30,20 +30,61 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
       // Find teams this tech belongs to
       const techTeams = teams.filter(t => t.memberIds.includes(tech.id)).map(t => t.id);
       
-      // Filter orders for the current month
-      const monthOrders = orders.filter(o => {
-        const date = parseISO(o.openingDate);
-        return format(date, 'yyyy-MM') === currentMonth;
-      });
-
-      // Count OS for this tech (Individual + Team)
-      const techOrders = monthOrders.filter(o => 
+      // Filter ALL orders for this tech/team (not just by openingDate)
+      const techOrders = orders.filter(o => 
         o.responsibleId === tech.id || techTeams.includes(o.responsibleId)
       );
 
-      const openOS = techOrders.length;
-      const closedOS = techOrders.filter(o => o.status === 'Concluída').length;
-      const productivity = openOS > 0 ? (closedOS / openOS) * 100 : 0;
+      // Group by day to calculate daily productivity using Dashboard logic
+      const dailyStats: Record<string, { total: number, completed: number }> = {};
+      
+      techOrders.forEach(order => {
+        const datesToProcess = new Set<string>();
+        if (order.openingDate) datesToProcess.add(order.openingDate);
+        if (order.originalOpeningDate) datesToProcess.add(order.originalOpeningDate);
+        if (order.closingDate && order.status === 'Concluída') datesToProcess.add(order.closingDate);
+
+        datesToProcess.forEach(dateStr => {
+          try {
+            const date = parseISO(dateStr);
+            if (isNaN(date.getTime())) return;
+            
+            // Only process dates within the current month
+            if (format(date, 'yyyy-MM') === currentMonth) {
+              if (!dailyStats[dateStr]) dailyStats[dateStr] = { total: 0, completed: 0 };
+              
+              dailyStats[dateStr].total++;
+              
+              // It counts as completed on this day ONLY if it was closed on this specific day
+              if (dateStr === order.closingDate && order.status === 'Concluída') {
+                dailyStats[dateStr].completed++;
+              }
+            }
+          } catch (e) {
+            // Skip invalid dates
+          }
+        });
+      });
+
+      const daysWorkedList = Object.keys(dailyStats).sort();
+      let totalDailyPercentage = 0;
+
+      daysWorkedList.forEach(day => {
+        const { total, completed } = dailyStats[day];
+        const dayPercentage = total > 0 ? (completed / total) * 100 : 0;
+        totalDailyPercentage += dayPercentage;
+      });
+
+      // Unique orders for the month (for display purposes)
+      const monthOrders = techOrders.filter(o => {
+        const opDate = parseISO(o.openingDate);
+        const clDate = o.closingDate ? parseISO(o.closingDate) : null;
+        return format(opDate, 'yyyy-MM') === currentMonth || (clDate && format(clDate, 'yyyy-MM') === currentMonth);
+      });
+
+      const openOS = monthOrders.length;
+      const closedOS = monthOrders.filter(o => o.status === 'Concluída' && o.closingDate && format(parseISO(o.closingDate), 'yyyy-MM') === currentMonth).length;
+      const productivity = daysWorkedList.length > 0 ? totalDailyPercentage / daysWorkedList.length : 0;
 
       let bonusPercentage = 0;
       if (productivity >= 95) bonusPercentage = 50;
@@ -60,6 +101,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
         baseSalary: tech.salaryBase,
         openOS,
         closedOS,
+        daysWorked: daysWorkedList.length,
         productivity,
         bonusPercentage,
         bonusAmount,
@@ -165,7 +207,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                       <div className={getProductivityColor(data.productivity)}>
                         {data.productivity.toFixed(1)}%
                       </div>
-                      <div className="text-[10px] text-muted-foreground">({data.closedOS}/{data.openOS} O.S.)</div>
+                      <div className="text-[10px] text-muted-foreground">Média Diária ({data.closedOS}/{data.openOS} O.S.)</div>
                     </TableCell>
                     <TableCell className="text-center">
                       {data.bonusPercentage > 0 ? (
@@ -239,6 +281,10 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                   <span className="text-muted-foreground">O.S. Concluídas:</span>
                   <span className="font-medium">{selectedTechDetail.closedOS}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Dias com O.S. Abertas:</span>
+                  <span className="font-medium">{selectedTechDetail.daysWorked}</span>
+                </div>
                 
                 <div className="pt-2 flex justify-between text-sm items-center">
                   <span className="text-muted-foreground">Bônus por Produtividade ({selectedTechDetail.bonusPercentage}%):</span>
@@ -266,7 +312,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
 
               <div className="text-[10px] text-muted-foreground bg-amber-50 p-2 rounded border border-amber-100 flex gap-2">
                 <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-                <p>O cálculo considera O.S. individuais e participações em equipes. O redutor de SLA é aplicado sobre o valor bruto do bônus atingido.</p>
+                <p>O cálculo considera a média das porcentagens diárias de conclusão. Somamos a produtividade de cada dia trabalhado e dividimos pelo total de dias. O redutor de SLA é aplicado sobre o valor bruto do bônus atingido.</p>
               </div>
             </div>
           )}
