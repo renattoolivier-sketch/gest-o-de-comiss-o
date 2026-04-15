@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS app_users (
 CREATE TABLE IF NOT EXISTS technicians (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  salaryBase NUMERIC NOT NULL,
+  "salaryBase" NUMERIC NOT NULL,
   role TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -188,20 +188,20 @@ CREATE TABLE IF NOT EXISTS technicians (
 CREATE TABLE IF NOT EXISTS teams (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  leaderId TEXT REFERENCES technicians(id),
-  memberIds TEXT[] NOT NULL,
+  "leaderId" TEXT REFERENCES technicians(id),
+  "memberIds" TEXT[] NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 4. Tabela de Ordens de Serviço
 CREATE TABLE IF NOT EXISTS service_orders (
   protocol TEXT PRIMARY KEY,
-  responsibleId TEXT NOT NULL,
-  isTeam BOOLEAN NOT NULL,
-  openingDate TEXT NOT NULL,
-  originalOpeningDate TEXT,
-  isDelayed BOOLEAN DEFAULT FALSE,
-  closingDate TEXT,
+  "responsibleId" TEXT NOT NULL,
+  "isTeam" BOOLEAN NOT NULL,
+  "openingDate" TEXT NOT NULL,
+  "originalOpeningDate" TEXT,
+  "isDelayed" BOOLEAN DEFAULT FALSE,
+  "closingDate" TEXT,
   status TEXT NOT NULL,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -224,9 +224,7 @@ CREATE TABLE IF NOT EXISTS system_backups (
 );
 
 -- 7. Habilitar Realtime (Sincronização em Tempo Real)
--- Execute estas linhas para que todos os usuários vejam as mudanças na hora
--- IMPORTANTE: Certifique-se de que o RLS (Row Level Security) está desativado 
--- ou que existem políticas de acesso configuradas para as tabelas.
+-- IMPORTANTE: Execute estas linhas para que todos os usuários vejam as mudanças na hora
 BEGIN;
   -- Remove a publicação se já existir para evitar erros
   DROP PUBLICATION IF EXISTS supabase_realtime;

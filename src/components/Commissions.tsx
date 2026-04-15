@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Technician, Team, ServiceOrder, CommissionResult, UserRole } from '@/src/types';
-import { Calculator, TrendingUp, Award, AlertCircle, DollarSign, Info, Search } from 'lucide-react';
+import { Calculator, TrendingUp, Award, AlertCircle, DollarSign, Info, User, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 interface CommissionsProps {
@@ -20,7 +20,7 @@ interface CommissionsProps {
 }
 
 export default function Commissions({ technicians, teams, orders, monthlySla, onUpdateSla, currentMonth }: CommissionsProps) {
-  const [selectedTechDetail, setSelectedTechDetail] = useState<CommissionResult | null>(null);
+  const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
 
   const commissionData = useMemo(() => {
     const results: CommissionResult[] = [];
@@ -123,6 +123,10 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
     };
   }, [commissionData]);
 
+  const selectedData = useMemo(() => {
+    return commissionData.find(d => d.technicianId === selectedTechId) || null;
+  }, [commissionData, selectedTechId]);
+
   const getProductivityColor = (prod: number) => {
     if (prod >= 95) return 'text-emerald-600 font-bold';
     if (prod >= 85) return 'text-purple-600 font-bold';
@@ -181,7 +185,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-purple-600" /> Detalhamento de Comissões
+            <Calculator className="w-5 h-5 text-purple-600" /> Resumo de Comissões
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -189,25 +193,32 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead>Técnico</TableHead>
+                  <TableHead>Técnico (Clique para Detalhes)</TableHead>
                   <TableHead className="text-center">Produtividade</TableHead>
                   <TableHead className="text-center">Bônus %</TableHead>
-                  <TableHead className="text-center w-[150px]">SLA Mensal (%)</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right">Comissão Final</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {commissionData.map((data) => (
                   <TableRow key={data.technicianId}>
                     <TableCell>
-                      <div className="font-medium">{data.technicianName}</div>
-                      <div className="text-[10px] text-muted-foreground">Salário: R$ {data.baseSalary.toLocaleString('pt-BR')}</div>
+                      <button 
+                        onClick={() => setSelectedTechId(data.technicianId)}
+                        className="text-left group"
+                      >
+                        <div className="font-bold text-slate-800 group-hover:text-purple-600 transition-colors uppercase tracking-tight">
+                          {data.technicianName}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Search className="w-2 h-2" /> Clique para ver o detalhamento
+                        </div>
+                      </button>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className={getProductivityColor(data.productivity)}>
                         {data.productivity.toFixed(1)}%
                       </div>
-                      <div className="text-[10px] text-muted-foreground">Média Diária ({data.closedOS}/{data.openOS} O.S.)</div>
                     </TableCell>
                     <TableCell className="text-center">
                       {data.bonusPercentage > 0 ? (
@@ -218,25 +229,8 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Input 
-                        type="number" 
-                        min="0" 
-                        max="100"
-                        value={monthlySla[currentMonth]?.[data.technicianId] ?? 100}
-                        onChange={(e) => onUpdateSla(currentMonth, data.technicianId, parseFloat(e.target.value) || 0)}
-                        className="h-8 text-center"
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                        onClick={() => setSelectedTechDetail(data)}
-                      >
-                        <Search className="w-4 h-4 mr-1" /> Detalhes
-                      </Button>
+                    <TableCell className="text-right font-bold text-purple-700">
+                      R$ {data.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -247,72 +241,107 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
       </Card>
 
       {/* Detailed Commission Dialog */}
-      <Dialog open={!!selectedTechDetail} onOpenChange={(open) => !open && setSelectedTechDetail(null)}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-purple-600" /> Detalhamento: {selectedTechDetail?.technicianName}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedTechDetail && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-lg border">
-                  <p className="text-xs text-muted-foreground uppercase font-bold">Salário Base</p>
-                  <p className="text-lg font-bold">R$ {selectedTechDetail.baseSalary.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border">
-                  <p className="text-xs text-muted-foreground uppercase font-bold">Produtividade</p>
-                  <p className={`text-lg font-bold ${getProductivityColor(selectedTechDetail.productivity)}`}>
-                    {selectedTechDetail.productivity.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold border-b pb-1">Memória de Cálculo</h4>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total de O.S. no Mês:</span>
-                  <span className="font-medium">{selectedTechDetail.openOS}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">O.S. Concluídas:</span>
-                  <span className="font-medium">{selectedTechDetail.closedOS}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Dias com O.S. Abertas:</span>
-                  <span className="font-medium">{selectedTechDetail.daysWorked}</span>
-                </div>
-                
-                <div className="pt-2 flex justify-between text-sm items-center">
-                  <span className="text-muted-foreground">Bônus por Produtividade ({selectedTechDetail.bonusPercentage}%):</span>
-                  <span className="font-bold text-emerald-600">
-                    + R$ {selectedTechDetail.bonusAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-sm items-center">
-                  <span className="text-muted-foreground">Redutor de SLA ({selectedTechDetail.sla}%):</span>
-                  <span className="font-bold text-amber-600">
-                    x {selectedTechDetail.sla / 100}
-                  </span>
-                </div>
-
-                <div className="mt-4 p-4 bg-purple-600 text-white rounded-xl shadow-inner">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm opacity-90 font-medium">Comissão Líquida Final</span>
-                    <span className="text-2xl font-black">
-                      R$ {selectedTechDetail.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
+      <Dialog open={!!selectedTechId} onOpenChange={(open) => !open && setSelectedTechId(null)}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          {selectedData && (
+            <div className="overflow-hidden">
+              <div className="bg-slate-50 border-b p-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-100 p-2 rounded-full">
+                    <User className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-black text-slate-800 uppercase tracking-tight">
+                      {selectedData.technicianName}
+                    </DialogTitle>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Detalhamento de Comissão
+                    </p>
                   </div>
                 </div>
               </div>
+              <div className="p-6 space-y-6 bg-white">
+                {/* Top Stats Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Salário Base</p>
+                    <p className="text-lg font-bold text-slate-700">
+                      R$ {selectedData.baseSalary.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Produtividade</p>
+                    <p className={`text-lg font-black ${getProductivityColor(selectedData.productivity)}`}>
+                      {selectedData.productivity.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
 
-              <div className="text-[10px] text-muted-foreground bg-amber-50 p-2 rounded border border-amber-100 flex gap-2">
-                <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-                <p>O cálculo considera a média das porcentagens diárias de conclusão. Somamos a produtividade de cada dia trabalhado e dividimos pelo total de dias. O redutor de SLA é aplicado sobre o valor bruto do bônus atingido.</p>
+                {/* Calculation Memory */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calculator className="w-4 h-4 text-purple-500" />
+                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Memória de Cálculo</h4>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center py-1 border-b border-dashed">
+                      <span className="text-muted-foreground">Total de O.S. no Mês:</span>
+                      <span className="font-bold text-slate-700">{selectedData.openOS}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-dashed">
+                      <span className="text-muted-foreground">O.S. Concluídas:</span>
+                      <span className="font-bold text-slate-700">{selectedData.closedOS}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-dashed">
+                      <span className="text-muted-foreground">Dias com O.S. Abertas:</span>
+                      <span className="font-bold text-slate-700">{selectedData.daysWorked}</span>
+                    </div>
+                    
+                    <div className="pt-2 flex justify-between items-center">
+                      <span className="text-muted-foreground">Bônus por Produtividade ({selectedData.bonusPercentage}%):</span>
+                      <span className="font-black text-emerald-600">
+                        + R$ {selectedData.bonusAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <Label className="text-muted-foreground text-sm font-normal">Redutor de SLA (%):</Label>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="100"
+                          value={monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100}
+                          onChange={(e) => onUpdateSla(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
+                          className="h-8 w-20 text-center text-sm font-bold border-amber-200 focus-visible:ring-amber-500"
+                        />
+                        <span className="text-xs font-bold text-amber-600">
+                          x {((monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final Result Box */}
+                  <div className="mt-8 p-6 bg-purple-600 text-white rounded-3xl shadow-xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                      <DollarSign className="w-16 h-16" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-center">
+                      <span className="text-sm opacity-90 font-black uppercase tracking-widest">Comissão Líquida</span>
+                      <span className="text-3xl font-black tracking-tighter">
+                        R$ {selectedData.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Note */}
+                <div className="text-[10px] leading-relaxed text-muted-foreground bg-amber-50 p-3 rounded-xl border border-amber-100 flex gap-3">
+                  <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p>Cálculo baseado na média diária de conclusão. O redutor de SLA é aplicado diretamente sobre o bônus de produtividade atingido.</p>
+                </div>
               </div>
             </div>
           )}

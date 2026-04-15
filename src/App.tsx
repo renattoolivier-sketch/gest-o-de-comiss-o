@@ -220,78 +220,88 @@ export default function App() {
   useEffect(() => {
     if (!isOnline) return;
 
-    const channels = [
-      supabase
-        .channel('technicians-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'technicians' }, (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setTechnicians(prev => {
-              if (prev.find(t => t.id === payload.new.id)) return prev;
-              return [...prev, payload.new as Technician];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setTechnicians(prev => prev.map(t => t.id === payload.new.id ? payload.new as Technician : t));
-          } else if (payload.eventType === 'DELETE') {
-            setTechnicians(prev => prev.filter(t => t.id !== payload.old.id));
-          }
-        })
-        .subscribe((status) => console.log('Technicians channel status:', status)),
+    console.log('Iniciando inscrições Realtime...');
 
-      supabase
-        .channel('teams-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setTeams(prev => {
-              if (prev.find(t => t.id === payload.new.id)) return prev;
-              return [...prev, payload.new as Team];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setTeams(prev => prev.map(t => t.id === payload.new.id ? payload.new as Team : t));
-          } else if (payload.eventType === 'DELETE') {
-            setTeams(prev => prev.filter(t => t.id !== payload.old.id));
-          }
-        })
-        .subscribe((status) => console.log('Teams channel status:', status)),
+    const techniciansChannel = supabase
+      .channel('technicians-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'technicians' }, (payload) => {
+        console.log('Evento Technicians:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT') {
+          setTechnicians(prev => {
+            if (prev.find(t => t.id === payload.new.id)) return prev;
+            return [...prev, payload.new as Technician];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setTechnicians(prev => prev.map(t => t.id === payload.new.id ? payload.new as Technician : t));
+        } else if (payload.eventType === 'DELETE') {
+          setTechnicians(prev => prev.filter(t => t.id !== payload.old.id));
+        }
+      })
+      .subscribe((status) => console.log('Status Canal Técnicos:', status));
 
-      supabase
-        .channel('orders-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders' }, (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setOrders(prev => {
-              if (prev.find(o => o.protocol === payload.new.protocol)) return prev;
-              return [...prev, payload.new as ServiceOrder];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setOrders(prev => prev.map(o => o.protocol === payload.new.protocol ? payload.new as ServiceOrder : o));
-          } else if (payload.eventType === 'DELETE') {
-            setOrders(prev => prev.filter(o => o.protocol !== payload.old.protocol));
-          }
-        })
-        .subscribe((status) => console.log('Orders channel status:', status)),
+    const teamsChannel = supabase
+      .channel('teams-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
+        console.log('Evento Teams:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT') {
+          setTeams(prev => {
+            if (prev.find(t => t.id === payload.new.id)) return prev;
+            return [...prev, payload.new as Team];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setTeams(prev => prev.map(t => t.id === payload.new.id ? payload.new as Team : t));
+        } else if (payload.eventType === 'DELETE') {
+          setTeams(prev => prev.filter(t => t.id !== payload.old.id));
+        }
+      })
+      .subscribe((status) => console.log('Status Canal Equipes:', status));
 
-      supabase
-        .channel('sla-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_sla' }, (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const item = payload.new;
-            setMonthlySla(prev => ({
-              ...prev,
-              [item.month]: {
-                ...(prev[item.month] || {}),
-                [item.tech_id]: item.value
-              }
-            }));
-          }
-        })
-        .subscribe((status) => {
-          console.log('SLA channel status:', status);
-        })
-    ];
+    const ordersChannel = supabase
+      .channel('orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders' }, (payload) => {
+        console.log('Evento Orders:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT') {
+          setOrders(prev => {
+            if (prev.find(o => o.protocol === payload.new.protocol)) return prev;
+            return [...prev, payload.new as ServiceOrder];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setOrders(prev => prev.map(o => o.protocol === payload.new.protocol ? payload.new as ServiceOrder : o));
+        } else if (payload.eventType === 'DELETE') {
+          setOrders(prev => prev.filter(o => o.protocol !== payload.old.protocol));
+        }
+      })
+      .subscribe((status) => console.log('Status Canal Ordens:', status));
+
+    const slaChannel = supabase
+      .channel('sla-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_sla' }, (payload) => {
+        console.log('Evento SLA:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = payload.new;
+          setMonthlySla(prev => ({
+            ...prev,
+            [item.month]: {
+              ...(prev[item.month] || {}),
+              [item.tech_id]: item.value
+            }
+          }));
+        } else if (payload.eventType === 'DELETE') {
+          const item = payload.old;
+          // Note: old payload might only have the ID if not configured for full row
+          fetchData(false); // Refresh all if delete happens to be safe
+        }
+      })
+      .subscribe((status) => console.log('Status Canal SLA:', status));
 
     return () => {
-      channels.forEach(channel => supabase.removeChannel(channel));
+      console.log('Limpando canais Realtime...');
+      supabase.removeChannel(techniciansChannel);
+      supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(slaChannel);
     };
-  }, [isOnline]);
+  }, [isOnline, fetchData]);
 
   // Sync with LocalStorage as backup
   useEffect(() => {
