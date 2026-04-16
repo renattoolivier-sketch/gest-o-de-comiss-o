@@ -45,8 +45,13 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('telecom_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('telecom_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Error parsing user from localStorage:', e);
+      return null;
+    }
   });
 
   // Load initial data from Supabase or LocalStorage
@@ -118,17 +123,21 @@ export default function App() {
       if ((!techData || techData.length === 0) && (!orderData || orderData.length === 0)) {
         const savedTechs = localStorage.getItem('telecom_techs');
         if (savedTechs) {
-          // Migrate existing local data if any
-          const initialTechs = JSON.parse(savedTechs);
-          const initialTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
-          const initialOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
-          const initialSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
-          
-          setTechnicians(initialTechs);
-          setTeams(initialTeams);
-          setOrders(initialOrders);
-          setMonthlySla(initialSla);
-          await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla);
+          try {
+            // Migrate existing local data if any
+            const initialTechs = JSON.parse(savedTechs);
+            const initialTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
+            const initialOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
+            const initialSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
+            
+            setTechnicians(initialTechs);
+            setTeams(initialTeams);
+            setOrders(initialOrders);
+            setMonthlySla(initialSla);
+            await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla);
+          } catch (e) {
+            console.error('Error migrating local data:', e);
+          }
         }
       }
     } catch (error) {
@@ -150,15 +159,23 @@ export default function App() {
   }, [fetchData]);
 
   const loadFallbackData = () => {
-    const savedTechs = localStorage.getItem('telecom_techs');
-    const savedTeams = localStorage.getItem('telecom_teams');
-    const savedOrders = localStorage.getItem('telecom_orders');
-    const savedSla = localStorage.getItem('telecom_monthly_sla');
+    try {
+      const savedTechs = localStorage.getItem('telecom_techs');
+      const savedTeams = localStorage.getItem('telecom_teams');
+      const savedOrders = localStorage.getItem('telecom_orders');
+      const savedSla = localStorage.getItem('telecom_monthly_sla');
 
-    setTechnicians(savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS);
-    setTeams(savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS);
-    setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS);
-    setMonthlySla(savedSla ? JSON.parse(savedSla) : {});
+      setTechnicians(savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS);
+      setTeams(savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS);
+      setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS);
+      setMonthlySla(savedSla ? JSON.parse(savedSla) : {});
+    } catch (e) {
+      console.error('Error loading fallback data:', e);
+      setTechnicians(INITIAL_TECHS);
+      setTeams(INITIAL_TEAMS);
+      setOrders(INITIAL_ORDERS);
+      setMonthlySla({});
+    }
   };
 
   const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any) => {

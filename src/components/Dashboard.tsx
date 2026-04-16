@@ -468,18 +468,18 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border overflow-hidden">
+            <div className="rounded-md border overflow-hidden max-h-[400px] overflow-y-auto">
               <Table>
-                <TableHeader className="bg-muted/50">
+                <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
                   <TableRow>
-                    <TableHead className="w-[100px]">Data</TableHead>
-                    <TableHead>Responsável / Membros</TableHead>
-                    <TableHead className="text-center">Total O.S.</TableHead>
-                    <TableHead className="text-center">Concluídas</TableHead>
-                    <TableHead className="text-center">Movidas</TableHead>
-                    <TableHead className="text-center">Restantes</TableHead>
-                    <TableHead className="text-center">% Prod.</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="w-[100px] bg-muted/50">Data</TableHead>
+                    <TableHead className="bg-muted/50">Responsável / Membros</TableHead>
+                    <TableHead className="text-center bg-muted/50">Total O.S.</TableHead>
+                    <TableHead className="text-center bg-muted/50">Concluídas</TableHead>
+                    <TableHead className="text-center bg-muted/50">Movidas</TableHead>
+                    <TableHead className="text-center bg-muted/50">Restantes</TableHead>
+                    <TableHead className="text-center bg-muted/50">% Prod.</TableHead>
+                    <TableHead className="text-right bg-muted/50">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
