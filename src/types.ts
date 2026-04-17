@@ -33,6 +33,7 @@ export interface CommissionResult {
   baseSalary: number;
   openOS: number;
   closedOS: number;
+  delayedOS: number;
   daysWorked: number;
   productivity: number;
   bonusPercentage: number;

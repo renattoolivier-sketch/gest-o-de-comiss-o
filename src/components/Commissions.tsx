@@ -84,6 +84,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
 
       const openOS = monthOrders.length;
       const closedOS = monthOrders.filter(o => o.status === 'Concluída' && o.closingDate && format(parseISO(o.closingDate), 'yyyy-MM') === currentMonth).length;
+      const delayedOS = monthOrders.filter(o => o.isDelayed).length;
       const productivity = daysWorkedList.length > 0 ? totalDailyPercentage / daysWorkedList.length : 0;
 
       let bonusPercentage = 0;
@@ -101,6 +102,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
         baseSalary: tech.salaryBase,
         openOS,
         closedOS,
+        delayedOS,
         daysWorked: daysWorkedList.length,
         productivity,
         bonusPercentage,
@@ -292,6 +294,10 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                     <div className="flex justify-between items-center py-1 border-b border-dashed">
                       <span className="text-muted-foreground">O.S. Concluídas:</span>
                       <span className="font-bold text-slate-700">{selectedData.closedOS}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-dashed">
+                      <span className="text-muted-foreground">O.S. em Atraso:</span>
+                      <span className="font-bold text-rose-600">{selectedData.delayedOS}</span>
                     </div>
                     <div className="flex justify-between items-center py-1 border-b border-dashed">
                       <span className="text-muted-foreground">Dias com O.S. Abertas:</span>
