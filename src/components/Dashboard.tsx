@@ -96,7 +96,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   }, [filteredOrders]);
 
   const responsibleSummary = useMemo(() => {
-    const summary: Record<string, Record<string, { total: number, completed: number, remaining: number, moved: number }>> = {};
+    const summary: Record<string, Record<string, { total: number, completed: number, remaining: number, moved: number, delayed: number }>> = {};
     
     filteredOrders.forEach(order => {
       const datesToProcess = new Set<string>();
@@ -112,7 +112,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
           if (format(parsedDate, 'yyyy-MM') === filterMonth) {
             if (!summary[date]) summary[date] = {};
             if (!summary[date][order.responsibleId]) {
-              summary[date][order.responsibleId] = { total: 0, completed: 0, remaining: 0, moved: 0 };
+              summary[date][order.responsibleId] = { total: 0, completed: 0, remaining: 0, moved: 0, delayed: 0 };
             }
 
             const isOriginalDay = date === order.originalOpeningDate && date !== order.openingDate;
@@ -129,6 +129,10 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
               summary[date][order.responsibleId].completed++;
             } else if (isScheduledDay && order.status !== 'Concluída' && order.status !== 'Cancelada') {
               summary[date][order.responsibleId].remaining++;
+            }
+
+            if (isScheduledDay && order.isDelayed) {
+              summary[date][order.responsibleId].delayed++;
             }
 
             if (isOriginalDay) {
@@ -477,6 +481,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                     <TableHead className="text-center bg-muted/50">Total O.S.</TableHead>
                     <TableHead className="text-center bg-muted/50">Concluídas</TableHead>
                     <TableHead className="text-center bg-muted/50">Movidas</TableHead>
+                    <TableHead className="text-center bg-muted/50">Atrasos</TableHead>
                     <TableHead className="text-center bg-muted/50">Restantes</TableHead>
                     <TableHead className="text-center bg-muted/50">% Prod.</TableHead>
                     <TableHead className="text-right bg-muted/50">Ações</TableHead>
@@ -519,6 +524,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                         <TableCell className="text-center font-bold">{item.total}</TableCell>
                         <TableCell className="text-center text-emerald-600 font-bold">{item.completed}</TableCell>
                         <TableCell className="text-center text-indigo-600 font-bold">{item.moved}</TableCell>
+                        <TableCell className="text-center text-rose-600 font-bold">{item.delayed}</TableCell>
                         <TableCell className="text-center text-amber-600 font-bold">{item.remaining}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">

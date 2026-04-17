@@ -198,6 +198,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                   <TableHead>Técnico (Clique para Detalhes)</TableHead>
                   <TableHead className="text-center">Produtividade</TableHead>
                   <TableHead className="text-center">Bônus %</TableHead>
+                  <TableHead className="text-center">Atrasos</TableHead>
                   <TableHead className="text-right">Comissão Final</TableHead>
                 </TableRow>
               </TableHeader>
@@ -230,6 +231,11 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`font-bold ${data.delayedOS > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                        {data.delayedOS}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-bold text-purple-700">
                       R$ {data.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
