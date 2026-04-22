@@ -17,7 +17,8 @@ import {
   getDaysInMonth
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileSpreadsheet, Info, CheckCircle2, Clock, PlayCircle, XCircle, Trash2 } from 'lucide-react';
+import { FileSpreadsheet, Info, CheckCircle2, Clock, PlayCircle, XCircle, Trash2, ArrowRightCircle, CalendarDays } from 'lucide-react';
+import { addDays } from 'date-fns';
 
 interface MonthlySpreadsheetProps {
   technicians: Technician[];
@@ -128,6 +129,34 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
       case 'Aberta': return <Badge className="bg-amber-500"><Clock className="w-3 h-3 mr-1" /> Aberta</Badge>;
       case 'Cancelada': return <Badge className="bg-rose-500"><XCircle className="w-3 h-3 mr-1" /> Cancelada</Badge>;
     }
+  };
+
+  const handleQuickClose = (order: ServiceOrder) => {
+    onUpdateOrder({
+      ...order,
+      status: 'Concluída',
+      closingDate: order.openingDate
+    });
+  };
+
+  const handleMoveToNextDay = (order: ServiceOrder) => {
+    const nextDay = format(addDays(parseISO(order.openingDate), 1), 'yyyy-MM-dd');
+    onUpdateOrder({
+      ...order,
+      openingDate: nextDay,
+      originalOpeningDate: order.originalOpeningDate || order.openingDate,
+      isDelayed: true
+    });
+  };
+
+  const handleMoveWithoutPrejudice = (order: ServiceOrder) => {
+    const nextDay = format(addDays(parseISO(order.openingDate), 1), 'yyyy-MM-dd');
+    onUpdateOrder({
+      ...order,
+      openingDate: nextDay,
+      originalOpeningDate: order.originalOpeningDate || order.openingDate,
+      isDelayed: false
+    });
   };
 
   return (
@@ -313,16 +342,50 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => {
-                                onDeleteOrder(order.protocol);
-                              }}
-                              className="h-8 w-8 text-rose-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => {
+                                  onDeleteOrder(order.protocol);
+                                }}
+                                className="h-8 w-8 text-rose-600"
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              {order.status !== 'Concluída' && !isMovedFromThisDay && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleQuickClose(order)} 
+                                    className="h-8 w-8 text-emerald-600"
+                                    title="Concluir"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleMoveWithoutPrejudice(order)} 
+                                    className="h-8 w-8 text-blue-600"
+                                    title="Remarcar s/ atraso (Imprevisto)"
+                                  >
+                                    <CalendarDays className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleMoveToNextDay(order)} 
+                                    className="h-8 w-8 text-amber-600"
+                                    title="Mover c/ atraso"
+                                  >
+                                    <ArrowRightCircle className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );

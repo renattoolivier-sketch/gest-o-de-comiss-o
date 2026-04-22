@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ServiceOrder, Technician, Team, Status, UserRole } from '@/src/types';
 import MonthlySpreadsheet from './MonthlySpreadsheet';
-import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock, CalendarDays } from 'lucide-react';
 import { format, parseISO, isSameMonth, addDays, getHours } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -261,6 +261,16 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
       openingDate: nextDay,
       originalOpeningDate: order.originalOpeningDate || order.openingDate,
       isDelayed: true
+    });
+  };
+
+  const handleMoveWithoutPrejudice = (order: ServiceOrder) => {
+    const nextDay = format(addDays(parseISO(order.openingDate), 1), 'yyyy-MM-dd');
+    onUpdateOrder({
+      ...order,
+      openingDate: nextDay,
+      originalOpeningDate: order.originalOpeningDate || order.openingDate,
+      isDelayed: false
     });
   };
 
@@ -695,14 +705,25 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                                     size="icon" 
                                     onClick={(e) => { e.stopPropagation(); handleQuickClose(order); }} 
                                     className="h-8 w-8 text-emerald-600"
+                                    title="Concluir O.S."
                                   >
                                     <CheckCircle2 className="h-4 w-4" />
                                   </Button>
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 
+                                    onClick={(e) => { e.stopPropagation(); handleMoveWithoutPrejudice(order); }} 
+                                    className="h-8 w-8 text-blue-600"
+                                    title="Remarcar p/ amanhã (SEM ATRASO - Imprevisto)"
+                                  >
+                                    <CalendarDays className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
                                     onClick={(e) => { e.stopPropagation(); handleMoveToNextDay(order); }} 
                                     className="h-8 w-8 text-amber-600"
+                                    title="Mover para amanhã (COM ATRASO)"
                                   >
                                     <ArrowRightCircle className="h-4 w-4" />
                                   </Button>
