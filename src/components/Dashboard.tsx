@@ -187,19 +187,8 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
     setFormError(null);
     const isTeam = teams.some(t => t.id === responsibleId);
     let finalOpeningDate = openingDate;
-    let isDelayed = false;
-    let originalOpeningDate = undefined;
-
-    // Logic: If opened after 15:00 and NOT completed, move to next day
-    const now = new Date();
-    const currentHour = getHours(now);
-    const isToday = openingDate === format(now, 'yyyy-MM-dd');
-
-    if (isToday && currentHour >= 15 && status !== 'Concluída') {
-      finalOpeningDate = format(addDays(now, 1), 'yyyy-MM-dd');
-      originalOpeningDate = openingDate;
-      isDelayed = false; // No longer marked as delayed for 15:00 auto-move
-    }
+    let isDelayed = editingOrder?.isDelayed || false;
+    let originalOpeningDate = editingOrder?.originalOpeningDate;
 
     const order: ServiceOrder = {
       protocol,
