@@ -717,8 +717,8 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                           <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
                             {order.description}
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                            {order.observation}
+                          <TableCell className="text-xs text-slate-600 max-w-[250px] whitespace-normal">
+                            {order.observation || '-'}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5 min-w-[160px]">

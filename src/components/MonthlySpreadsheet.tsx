@@ -342,8 +342,8 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
-                            {order.observation}
+                          <TableCell className="text-xs text-slate-600 max-w-[200px] whitespace-normal">
+                            {order.observation || '-'}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5 min-w-[160px]">

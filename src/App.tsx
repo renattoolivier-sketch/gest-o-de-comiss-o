@@ -211,7 +211,8 @@ export default function App() {
           isDelayed: o.isDelayed,
           closingDate: o.closingDate,
           status: o.status,
-          description: o.description
+          description: o.description,
+          observation: o.observation
         })));
       }
 
@@ -333,31 +334,49 @@ export default function App() {
   // Handlers with Supabase Sync
   const handleAddOrder = async (order: ServiceOrder) => {
     setOrders(prev => [...prev, order]);
-    await supabase.from('service_orders').insert([{
-      protocol: order.protocol,
-      responsibleId: order.responsibleId,
-      isTeam: order.isTeam,
-      openingDate: order.openingDate,
-      originalOpeningDate: order.originalOpeningDate,
-      isDelayed: order.isDelayed,
-      closingDate: order.closingDate,
-      status: order.status,
-      description: order.description
-    }]);
+    try {
+      const { error } = await supabase.from('service_orders').insert([{
+        protocol: order.protocol,
+        responsibleId: order.responsibleId,
+        isTeam: order.isTeam,
+        openingDate: order.openingDate,
+        originalOpeningDate: order.originalOpeningDate,
+        isDelayed: order.isDelayed,
+        closingDate: order.closingDate,
+        status: order.status,
+        description: order.description,
+        observation: order.observation
+      }]);
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Erro ao salvar O.S. no Supabase:', e);
+      if (e.message?.includes('column "observation" of relation "service_orders" does not exist')) {
+        alert('AVISO: O campo "Observação" não existe no seu banco de dados Supabase. Execute o comando SQL: ALTER TABLE service_orders ADD COLUMN observation TEXT;');
+      }
+    }
   };
 
   const handleUpdateOrder = async (order: ServiceOrder) => {
     setOrders(prev => prev.map(o => o.protocol === order.protocol ? order : o));
-    await supabase.from('service_orders').update({
-      responsibleId: order.responsibleId,
-      isTeam: order.isTeam,
-      openingDate: order.openingDate,
-      originalOpeningDate: order.originalOpeningDate,
-      isDelayed: order.isDelayed,
-      closingDate: order.closingDate,
-      status: order.status,
-      description: order.description
-    }).eq('protocol', order.protocol);
+    try {
+      const { error } = await supabase.from('service_orders').update({
+        responsibleId: order.responsibleId,
+        isTeam: order.isTeam,
+        openingDate: order.openingDate,
+        originalOpeningDate: order.originalOpeningDate,
+        isDelayed: order.isDelayed,
+        closingDate: order.closingDate,
+        status: order.status,
+        description: order.description,
+        observation: order.observation
+      }).eq('protocol', order.protocol);
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Erro ao atualizar O.S. no Supabase:', e);
+      if (e.message?.includes('column "observation" of relation "service_orders" does not exist')) {
+        alert('AVISO: O campo "Observação" não existe no seu banco de dados Supabase. Para que as observações sejam salvas permanentemente, execute o comando SQL no painel do Supabase: ALTER TABLE service_orders ADD COLUMN observation TEXT;');
+      }
+    }
   };
 
   const handleDeleteOrder = async (protocol: string) => {
