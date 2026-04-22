@@ -566,7 +566,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
 
       {/* Responsible Details Dialog */}
       <Dialog open={!!selectedResponsible} onOpenChange={(open) => !open && setSelectedResponsible(null)}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col">
+        <DialogContent className="sm:max-w-[1000px] max-h-[85vh] flex flex-col p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-purple-600" /> Detalhes: {selectedResponsible?.name} 
@@ -684,11 +684,11 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                             </div>
                           </TableCell>
                           <TableCell>{getStatusBadge(order.status)}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                          <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
                             {order.description}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-1.5 min-w-[160px]">
                               <Button 
                                 variant="ghost" 
                                 size="icon" 

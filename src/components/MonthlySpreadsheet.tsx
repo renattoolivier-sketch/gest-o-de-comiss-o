@@ -262,7 +262,7 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
 
       {/* Day Detail Dialog */}
       <Dialog open={!!selectedDayDetail} onOpenChange={(open) => !open && setSelectedDayDetail(null)}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[1000px] max-h-[85vh] flex flex-col p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-purple-600" /> 
@@ -342,7 +342,7 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
+                            <div className="flex justify-end gap-1.5 min-w-[160px]">
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
