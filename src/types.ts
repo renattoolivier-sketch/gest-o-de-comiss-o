@@ -25,6 +25,7 @@ export interface ServiceOrder {
   closingDate?: string;
   status: Status;
   description: string;
+  observation?: string;
 }
 
 export interface CommissionResult {

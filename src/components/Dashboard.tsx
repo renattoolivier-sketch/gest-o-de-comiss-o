@@ -37,6 +37,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   const [openingDate, setOpeningDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [closingDate, setClosingDate] = useState('');
   const [description, setDescription] = useState('');
+  const [observation, setObservation] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   const getResponsibleName = (id: string) => {
@@ -199,7 +200,8 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
       isDelayed,
       closingDate: status === 'Concluída' ? (closingDate || openingDate) : undefined,
       status,
-      description
+      description,
+      observation
     };
 
     if (editingOrder) {
@@ -218,6 +220,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
     setOpeningDate(format(new Date(), 'yyyy-MM-dd'));
     setClosingDate('');
     setDescription('');
+    setObservation('');
     setEditingOrder(null);
     setFormError(null);
   };
@@ -230,6 +233,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
     setOpeningDate(order.openingDate);
     setClosingDate(order.closingDate || '');
     setDescription(order.description);
+    setObservation(order.observation || '');
     setIsDialogOpen(true);
   };
 
@@ -336,6 +340,10 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="description" className="text-right">Descrição</Label>
                     <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Detalhes do serviço..." />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="observation" className="text-right">Observação</Label>
+                    <Input id="observation" value={observation} onChange={(e) => setObservation(e.target.value)} className="col-span-3" placeholder="Observações adicionais..." />
                   </div>
                   {formError && (
                     <div className="col-span-4 flex items-center gap-2 p-2 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded">
@@ -445,6 +453,17 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
                 placeholder="Detalhes..." 
+                className="bg-white"
+                disabled={!isAdmin}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick-obs" className="text-xs font-bold uppercase text-slate-500">Observação</Label>
+              <Input 
+                id="quick-obs" 
+                value={observation} 
+                onChange={(e) => setObservation(e.target.value)} 
+                placeholder="Obs..." 
                 className="bg-white"
                 disabled={!isAdmin}
               />
@@ -619,6 +638,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                     <TableHead>Data</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Descrição</TableHead>
+                    <TableHead>Observação</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -675,6 +695,9 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                           <TableCell>{getStatusBadge(order.status)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
                             {order.description}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                            {order.observation}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5 min-w-[160px]">

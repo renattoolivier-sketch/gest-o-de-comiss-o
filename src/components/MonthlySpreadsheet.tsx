@@ -277,6 +277,7 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                     <TableHead>Protocolo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Descrição</TableHead>
+                    <TableHead>Observação</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -340,6 +341,9 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                                 </span>
                               )}
                             </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
+                            {order.observation}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5 min-w-[160px]">
