@@ -85,16 +85,33 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   }, [orders, filterMonth]);
 
   const stats = useMemo(() => {
-    const total = filteredOrders.length;
-    const completed = filteredOrders.filter(o => o.status === 'Concluída').length;
-    const inProgress = filteredOrders.filter(o => o.status === 'Em Execução').length;
-    const open = filteredOrders.filter(o => o.status === 'Aberta').length;
-    const cancelled = filteredOrders.filter(o => o.status === 'Cancelada').length;
-    const delayed = filteredOrders.filter(o => o.isDelayed).length;
+    // For statistical calculation, we only count orders that were either:
+    // 1. Scheduled for this month and NOT moved away without delay
+    // 2. Closed this month
+    const validOrdersForStats = filteredOrders.filter(o => {
+      const isOriginalInMonth = o.originalOpeningDate && format(parseISO(o.originalOpeningDate), 'yyyy-MM') === filterMonth;
+      const isScheduledInMonth = format(parseISO(o.openingDate), 'yyyy-MM') === filterMonth;
+      const isMovedAwayWithoutDelay = isOriginalInMonth && !isScheduledInMonth && !o.isDelayed;
+      
+      // Also, if moved WITHIN the month but without delay, it shouldn't count in the total twice 
+      // but filteredOrders already handles unique orders.
+      // The key is: if it's moved from TODAY to TOMORROW (both in April) without delay, 
+      // the daily summary handles it (removes from total of today).
+      // For the MONTHLY total, it should still count as 1 O.S. (the one it's currently scheduled for).
+      
+      return !isMovedAwayWithoutDelay;
+    });
+
+    const total = validOrdersForStats.length;
+    const completed = validOrdersForStats.filter(o => o.status === 'Concluída').length;
+    const inProgress = validOrdersForStats.filter(o => o.status === 'Em Execução').length;
+    const open = validOrdersForStats.filter(o => o.status === 'Aberta').length;
+    const cancelled = validOrdersForStats.filter(o => o.status === 'Cancelada').length;
+    const delayed = validOrdersForStats.filter(o => o.isDelayed).length;
     const rate = total > 0 ? (completed / total) * 100 : 0;
 
     return { total, completed, inProgress, open, cancelled, delayed, rate };
-  }, [filteredOrders]);
+  }, [filteredOrders, filterMonth]);
 
   const responsibleSummary = useMemo(() => {
     const summary: Record<string, Record<string, { total: number, completed: number, remaining: number, moved: number, delayed: number }>> = {};
@@ -120,9 +137,13 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
             const isClosingDay = date === order.closingDate && order.status === 'Concluída';
             const isScheduledDay = date === order.openingDate;
 
-            // Increment total if it's the day it's scheduled OR the day it was finished
-            // (If it was finished on a different day than scheduled, it counts as a task on both days)
-            if (isScheduledDay || isClosingDay || isOriginalDay) {
+            // Increment total if it's the day it's scheduled OR the day it was finished.
+            // If it was MOVED AWAY from this day (isOriginalDay), it only counts in the total
+            // if it was a delay (order.isDelayed). If it was an imprevisto/sem prejuízo, 
+            // it is removed from this day's workload to keep productivity at 100%.
+            const shouldCountInTotal = isScheduledDay || isClosingDay || (isOriginalDay && order.isDelayed);
+
+            if (shouldCountInTotal) {
               summary[date][order.responsibleId].total++;
             }
 

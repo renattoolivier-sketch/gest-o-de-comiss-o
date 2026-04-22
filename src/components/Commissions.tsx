@@ -53,10 +53,18 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
             if (format(date, 'yyyy-MM') === currentMonth) {
               if (!dailyStats[dateStr]) dailyStats[dateStr] = { total: 0, completed: 0 };
               
-              dailyStats[dateStr].total++;
+              const isScheduledDay = dateStr === order.openingDate;
+              const isClosingDay = dateStr === order.closingDate && order.status === 'Concluída';
+              const isOriginalDay = dateStr === order.originalOpeningDate && dateStr !== order.openingDate;
+
+              // Only count in total if it's the day it was supposed to happen (and not moved without delay)
+              // or the day it was actually closed.
+              if (isScheduledDay || isClosingDay || (isOriginalDay && order.isDelayed)) {
+                dailyStats[dateStr].total++;
+              }
               
               // It counts as completed on this day ONLY if it was closed on this specific day
-              if (dateStr === order.closingDate && order.status === 'Concluída') {
+              if (isClosingDay) {
                 dailyStats[dateStr].completed++;
               }
             }
