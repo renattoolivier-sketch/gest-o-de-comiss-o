@@ -33,8 +33,10 @@ export default function TechniciansTeams({
   technicians, teams, orders,
   onAddTechnician, onUpdateTechnician, onDeleteTechnician,
   onAddTeam, onUpdateTeam, onDeleteTeam, onResetData,
-  onSaveBackup, onRestoreBackup
+  onSaveBackup, onRestoreBackup,
+  userRole
 }: TechniciansTeamsProps) {
+  const isAdmin = userRole === 'admin';
   const [isTechDialogOpen, setIsTechDialogOpen] = useState(false);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [editingTechnician, setEditingTechnician] = useState<Technician | null>(null);
@@ -146,26 +148,28 @@ export default function TechniciansTeams({
           <p className="text-muted-foreground">Gerencie sua força de trabalho e organize as equipes.</p>
         </div>
         <div className="flex gap-2">
-          <Dialog>
-            <DialogTrigger render={<Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" />}>
-              <RefreshCcw className="w-4 h-4 mr-2" /> Configurar Banco
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Configuração do Banco de Dados (Supabase)</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800 flex gap-3">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <div>
-                    <p className="font-bold mb-1">Atenção!</p>
-                    <p>Se você não está vendo seus dados, certifique-se de que as tabelas foram criadas no Supabase SQL Editor.</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Script SQL para Criar Tabelas:</Label>
-                  <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
-                    <pre>{`
+          {isAdmin && (
+            <>
+              <Dialog>
+                <DialogTrigger render={<Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" />}>
+                  <RefreshCcw className="w-4 h-4 mr-2" /> Configurar Banco
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Configuração do Banco de Dados (Supabase)</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800 flex gap-3">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      <div>
+                        <p className="font-bold mb-1">Atenção!</p>
+                        <p>Se você não está vendo seus dados, certifique-se de que as tabelas foram criadas no Supabase SQL Editor.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Script SQL para Criar Tabelas:</Label>
+                      <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
+                        <pre>{`
 -- 1. Tabela de Usuários
 CREATE TABLE IF NOT EXISTS app_users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -204,6 +208,7 @@ CREATE TABLE IF NOT EXISTS service_orders (
   "closingDate" TEXT,
   status TEXT NOT NULL,
   description TEXT,
+  observation TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -223,6 +228,16 @@ CREATE TABLE IF NOT EXISTS system_backups (
   data JSONB NOT NULL
 );
 
+-- 7. Tabela de Logs do Sistema
+CREATE TABLE IF NOT EXISTS system_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  username TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT NOT NULL,
+  category TEXT NOT NULL
+);
+
 -- 7. Habilitar Realtime (Sincronização em Tempo Real)
 -- IMPORTANTE: Execute estas linhas para que todos os usuários vejam as mudanças na hora
 BEGIN;
@@ -238,119 +253,121 @@ BEGIN;
     app_users, 
     system_backups;
 COMMIT;
-                    `}</pre>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground italic">
-                  * Copie o código acima, vá ao seu projeto no Supabase, clique em "SQL Editor" e execute-o.
-                </p>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Dialog open={isTechDialogOpen} onOpenChange={(open) => {
-            setIsTechDialogOpen(open);
-            if (!open) {
-              setEditingTechnician(null);
-              setTechName('');
-              setTechSalary('');
-            }
-          }}>
-            <DialogTrigger render={<Button variant="outline" />}>
-              <UserPlus className="w-4 h-4 mr-2" /> Novo Técnico
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingTechnician ? 'Editar Técnico' : 'Cadastrar Novo Técnico'}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Nome Completo</Label>
-                  <Input value={techName} onChange={(e) => setTechName(e.target.value)} placeholder="Ex: João Silva" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Salário Base (R$)</Label>
-                  <Input type="number" value={techSalary} onChange={(e) => setTechSalary(e.target.value)} placeholder="1850.00" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Cargo / Função</Label>
-                  <Select value={techRole} onValueChange={setTechRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Técnico de Campo">Técnico de Campo</SelectItem>
-                      <SelectItem value="Instalador">Instalador</SelectItem>
-                      <SelectItem value="Reparador">Reparador</SelectItem>
-                      <SelectItem value="Líder Técnico">Líder Técnico</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddTech} className="bg-purple-600 hover:bg-purple-700">
-                  {editingTechnician ? 'Salvar Alterações' : 'Cadastrar'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
-            setIsTeamDialogOpen(open);
-            if (!open) {
-              setEditingTeam(null);
-              setTeamName('');
-              setTeamLeaderId('');
-              setTeamMemberIds([]);
-            }
-          }}>
-            <DialogTrigger render={<Button className="bg-purple-600 hover:bg-purple-700" />}>
-              <Users className="w-4 h-4 mr-2" /> Nova Equipe
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>{editingTeam ? 'Editar Equipe' : 'Formar Nova Equipe'}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Nome da Equipe</Label>
-                  <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Alpha" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Líder da Equipe</Label>
-                  <Select value={teamLeaderId} onValueChange={setTeamLeaderId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o líder" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {technicians.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Membros da Equipe</Label>
-                  <ScrollArea className="h-[200px] border rounded-md p-2">
-                    <div className="space-y-2">
-                      {technicians.map(t => (
-                        <div key={t.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer" onClick={() => toggleMember(t.id)}>
-                          <div className={`w-4 h-4 border rounded flex items-center justify-center ${teamMemberIds.includes(t.id) ? 'bg-purple-600 border-purple-600' : 'border-input'}`}>
-                            {teamMemberIds.includes(t.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
-                          </div>
-                          <span className="text-sm">{t.name}</span>
-                        </div>
-                      ))}
+                        `}</pre>
+                      </div>
                     </div>
-                  </ScrollArea>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddTeam} className="bg-purple-600 hover:bg-purple-700">
-                  {editingTeam ? 'Salvar Alterações' : 'Criar Equipe'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                    <p className="text-xs text-muted-foreground italic">
+                      * Copie o código acima, vá ao seu projeto no Supabase, clique em "SQL Editor" e execute-o.
+                    </p>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Dialog open={isTechDialogOpen} onOpenChange={(open) => {
+                setIsTechDialogOpen(open);
+                if (!open) {
+                  setEditingTechnician(null);
+                  setTechName('');
+                  setTechSalary('');
+                }
+              }}>
+                <DialogTrigger render={<Button variant="outline" />}>
+                  <UserPlus className="w-4 h-4 mr-2" /> Novo Técnico
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{editingTechnician ? 'Editar Técnico' : 'Cadastrar Novo Técnico'}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>Nome Completo</Label>
+                      <Input value={techName} onChange={(e) => setTechName(e.target.value)} placeholder="Ex: João Silva" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Salário Base (R$)</Label>
+                      <Input type="number" value={techSalary} onChange={(e) => setTechSalary(e.target.value)} placeholder="1850.00" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Cargo / Função</Label>
+                      <Select value={techRole} onValueChange={setTechRole}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Técnico de Campo">Técnico de Campo</SelectItem>
+                          <SelectItem value="Instalador">Instalador</SelectItem>
+                          <SelectItem value="Reparador">Reparador</SelectItem>
+                          <SelectItem value="Líder Técnico">Líder Técnico</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleAddTech} className="bg-purple-600 hover:bg-purple-700">
+                      {editingTechnician ? 'Salvar Alterações' : 'Cadastrar'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                setIsTeamDialogOpen(open);
+                if (!open) {
+                  setEditingTeam(null);
+                  setTeamName('');
+                  setTeamLeaderId('');
+                  setTeamMemberIds([]);
+                }
+              }}>
+                <DialogTrigger render={<Button className="bg-purple-600 hover:bg-purple-700" />}>
+                  <Users className="w-4 h-4 mr-2" /> Nova Equipe
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>{editingTeam ? 'Editar Equipe' : 'Formar Nova Equipe'}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>Nome da Equipe</Label>
+                      <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Alpha" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Líder da Equipe</Label>
+                      <Select value={teamLeaderId} onValueChange={setTeamLeaderId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o líder" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {technicians.map(t => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Membros da Equipe</Label>
+                      <ScrollArea className="h-[200px] border rounded-md p-2">
+                        <div className="space-y-2">
+                          {technicians.map(t => (
+                            <div key={t.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer" onClick={() => toggleMember(t.id)}>
+                              <div className={`w-4 h-4 border rounded flex items-center justify-center ${teamMemberIds.includes(t.id) ? 'bg-purple-600 border-purple-600' : 'border-input'}`}>
+                                {teamMemberIds.includes(t.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                              </div>
+                              <span className="text-sm">{t.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleAddTeam} className="bg-purple-600 hover:bg-purple-700">
+                      {editingTeam ? 'Salvar Alterações' : 'Criar Equipe'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </div>
       </div>
 
@@ -392,15 +409,19 @@ COMMIT;
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditTech(tech)} className="h-8 w-8 text-amber-600">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="icon" onClick={() => handleEditTech(tech)} className="h-8 w-8 text-amber-600">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => setSelectedTechHistory(tech)} className="h-8 w-8 text-purple-600">
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDeleteTechnician(tech.id)} className="h-8 w-8 text-rose-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="icon" onClick={() => onDeleteTechnician(tech.id)} className="h-8 w-8 text-rose-600">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -431,12 +452,16 @@ COMMIT;
                         <p className="text-xs text-muted-foreground">Líder: {technicians.find(t => t.id === team.leaderId)?.name || 'N/A'}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)} className="h-8 w-8 text-amber-600">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDeleteTeam(team.id)} className="h-8 w-8 text-rose-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)} className="h-8 w-8 text-amber-600">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => onDeleteTeam(team.id)} className="h-8 w-8 text-rose-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -459,52 +484,54 @@ COMMIT;
 
       <Separator className="my-8" />
 
-      <Card className="border-rose-100 bg-rose-50/30">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2 text-rose-700">
-            <RefreshCcw className="w-5 h-5" /> Zona de Perigo: Redefinição de Dados
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start gap-3 p-3 bg-white border border-rose-100 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-rose-500 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-rose-700">Atenção!</p>
-              <p className="text-xs text-slate-600">
-                Esta ação apagará **TODOS** os dados salvos (Técnicos, Equipes e Ordens de Serviço) e restaurará os valores iniciais do sistema. 
-                Use esta opção se encontrar duplicidades ou erros nos dados que não consegue corrigir manualmente.
-              </p>
+      {isAdmin && (
+        <Card className="border-rose-100 bg-rose-50/30">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-rose-700">
+              <RefreshCcw className="w-5 h-5" /> Zona de Perigo: Redefinição de Dados
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-white border border-rose-100 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-rose-500 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-rose-700">Atenção!</p>
+                <p className="text-xs text-slate-600">
+                  Esta ação apagará **TODOS** os dados salvos (Técnicos, Equipes e Ordens de Serviço) e restaurará os valores iniciais do sistema. 
+                  Use esta opção se encontrar duplicidades ou erros nos dados que não consegue corrigir manualmente.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Button 
+                variant="outline" 
+                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                onClick={onSaveBackup}
+              >
+                <Shield className="w-4 h-4 mr-2" /> Salvar Backup das Configurações
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                onClick={onRestoreBackup}
+              >
+                <History className="w-4 h-4 mr-2" /> Restaurar Último Salvamento
+              </Button>
+            </div>
             <Button 
-              variant="outline" 
-              className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
-              onClick={onSaveBackup}
+              variant="destructive" 
+              className="w-full"
+              onClick={() => {
+                if (confirm("Tem certeza que deseja apagar todos os dados e restaurar o sistema? Esta ação apagará os dados do Supabase e do LocalStorage.")) {
+                  onResetData();
+                }
+              }}
             >
-              <Shield className="w-4 h-4 mr-2" /> Salvar Backup das Configurações
+              Restaurar Configurações de Fábrica
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
-              onClick={onRestoreBackup}
-            >
-              <History className="w-4 h-4 mr-2" /> Restaurar Último Salvamento
-            </Button>
-          </div>
-          <Button 
-            variant="destructive" 
-            className="w-full"
-            onClick={() => {
-              if (confirm("Tem certeza que deseja apagar todos os dados e restaurar o sistema? Esta ação apagará os dados do Supabase e do LocalStorage.")) {
-                onResetData();
-              }
-            }}
-          >
-            Restaurar Configurações de Fábrica
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* History Dialog */}
       <Dialog open={!!selectedTechHistory} onOpenChange={(open) => !open && setSelectedTechHistory(null)}>

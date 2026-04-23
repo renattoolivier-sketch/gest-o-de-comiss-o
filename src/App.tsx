@@ -5,14 +5,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Technician, Team, ServiceOrder, UserProfile } from './types';
+import { Technician, Team, ServiceOrder, UserProfile, SystemLog } from './types';
 import Dashboard from './components/Dashboard';
 import TechniciansTeams from './components/TechniciansTeams';
 import Commissions from './components/Commissions';
 import MonthlySpreadsheet from './components/MonthlySpreadsheet';
 import UserManagement from './components/UserManagement';
+import SystemLogs from './components/SystemLogs';
 import Login from './components/Login';
-import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle, RefreshCcw } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle, RefreshCcw, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from './lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -334,6 +335,12 @@ export default function App() {
   // Handlers with Supabase Sync
   const handleAddOrder = async (order: ServiceOrder) => {
     setOrders(prev => [...prev, order]);
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Nova O.S. Criada',
+      details: `Protocolo: ${order.protocol} | Responsável: ${order.responsibleId}`,
+      category: 'O.S.'
+    });
     try {
       const { error } = await supabase.from('service_orders').insert([{
         protocol: order.protocol,
@@ -357,7 +364,17 @@ export default function App() {
   };
 
   const handleUpdateOrder = async (order: ServiceOrder) => {
+    const oldOrder = orders.find(o => o.protocol === order.protocol);
+    const statusChanged = oldOrder && oldOrder.status !== order.status;
+    
     setOrders(prev => prev.map(o => o.protocol === order.protocol ? order : o));
+    
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: statusChanged ? `O.S. Alterada para ${order.status}` : 'Dados da O.S. Editados',
+      details: `Protocolo: ${order.protocol}`,
+      category: 'O.S.'
+    });
     try {
       const { error } = await supabase.from('service_orders').update({
         responsibleId: order.responsibleId,
@@ -381,11 +398,23 @@ export default function App() {
 
   const handleDeleteOrder = async (protocol: string) => {
     setOrders(prev => prev.filter(o => o.protocol !== protocol));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'O.S. Excluída',
+      details: `Protocolo: ${protocol}`,
+      category: 'O.S.'
+    });
     await supabase.from('service_orders').delete().eq('protocol', protocol);
   };
 
   const handleAddTech = async (tech: Technician) => {
     setTechnicians(prev => [...prev, tech]);
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Técnico Adicionado',
+      details: `Nome: ${tech.name} | Cargo: ${tech.role}`,
+      category: 'Técnico'
+    });
     await supabase.from('technicians').insert([{
       id: tech.id,
       name: tech.name,
@@ -396,6 +425,12 @@ export default function App() {
 
   const handleUpdateTech = async (tech: Technician) => {
     setTechnicians(prev => prev.map(t => t.id === tech.id ? tech : t));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Dados do Técnico Editados',
+      details: `Nome: ${tech.name}`,
+      category: 'Técnico'
+    });
     await supabase.from('technicians').update({
       name: tech.name,
       salaryBase: tech.salaryBase,
@@ -404,12 +439,25 @@ export default function App() {
   };
 
   const handleDeleteTech = async (id: string) => {
+    const tech = technicians.find(t => t.id === id);
     setTechnicians(prev => prev.filter(t => t.id !== id));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Técnico Excluído',
+      details: `Nome: ${tech?.name || id}`,
+      category: 'Técnico'
+    });
     await supabase.from('technicians').delete().eq('id', id);
   };
 
   const handleAddTeam = async (team: Team) => {
     setTeams(prev => [...prev, team]);
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Equipe Criada',
+      details: `Nome: ${team.name}`,
+      category: 'Equipe'
+    });
     await supabase.from('teams').insert([{
       id: team.id,
       name: team.name,
@@ -420,6 +468,12 @@ export default function App() {
 
   const handleUpdateTeam = async (team: Team) => {
     setTeams(prev => prev.map(t => t.id === team.id ? team : t));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Dados da Equipe Editados',
+      details: `Nome: ${team.name}`,
+      category: 'Equipe'
+    });
     await supabase.from('teams').update({
       name: team.name,
       leaderId: team.leaderId,
@@ -428,11 +482,19 @@ export default function App() {
   };
 
   const handleDeleteTeam = async (id: string) => {
+    const team = teams.find(t => t.id === id);
     setTeams(prev => prev.filter(t => t.id !== id));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Equipe Excluída',
+      details: `Nome: ${team?.name || id}`,
+      category: 'Equipe'
+    });
     await supabase.from('teams').delete().eq('id', id);
   };
 
   const handleUpdateSla = async (month: string, techId: string, value: number) => {
+    const techName = technicians.find(t => t.id === techId)?.name || techId;
     setMonthlySla(prev => ({
       ...prev,
       [month]: {
@@ -440,6 +502,12 @@ export default function App() {
         [techId]: value
       }
     }));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'SLA Atualizado',
+      details: `Técnico: ${techName} | Mês: ${month} | Valor: ${value}%`,
+      category: 'Sistema'
+    });
     await supabase.from('monthly_sla').upsert({
       month,
       tech_id: techId,
@@ -447,12 +515,34 @@ export default function App() {
     }, { onConflict: 'month,tech_id' });
   };
 
+  const saveLog = async (log: Omit<SystemLog, 'id' | 'created_at'>) => {
+    try {
+      await supabase.from('system_logs').insert([log]);
+    } catch (err) {
+      console.error('Erro ao salvar log:', err);
+    }
+  };
+
   const handleLogin = (userData: UserProfile) => {
     setUser(userData);
     localStorage.setItem('telecom_user', JSON.stringify(userData));
+    saveLog({
+      username: userData.username,
+      action: 'Login no Sistema',
+      details: `Usuário realizou login com nível ${userData.role}`,
+      category: 'Sistema'
+    });
   };
 
   const handleLogout = () => {
+    if (user) {
+      saveLog({
+        username: user.username,
+        action: 'Logout do Sistema',
+        details: 'Usuário encerrou a sessão',
+        category: 'Sistema'
+      });
+    }
     setUser(null);
     localStorage.removeItem('telecom_user');
   };
@@ -460,6 +550,12 @@ export default function App() {
   const handleResetData = async () => {
     setIsLoading(true);
     try {
+      await saveLog({
+        username: user?.username || 'Sistema',
+        action: 'Reset de Fábrica',
+        details: 'Usuário solicitou redefinição total dos dados do sistema',
+        category: 'Sistema'
+      });
       // Clear Supabase tables
       await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
       await supabase.from('service_orders').delete().neq('protocol', ''); 
@@ -502,6 +598,13 @@ export default function App() {
         return;
       }
 
+      saveLog({
+        username: user?.username || 'Sistema',
+        action: 'Backup Realizado',
+        details: 'Novo ponto de restauração criado manualmente',
+        category: 'Sistema'
+      });
+
       alert('Backup realizado com sucesso!');
     } catch (error) {
       console.error('Error saving backup:', error);
@@ -527,6 +630,13 @@ export default function App() {
       }
 
       const backup = backupList[0].data;
+
+      await saveLog({
+        username: user?.username || 'Sistema',
+        action: 'Restauração de Backup',
+        details: `Dados restaurados do ponto: ${backup.timestamp || 'N/A'}`,
+        category: 'Sistema'
+      });
 
       // Clear current data first
       await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -635,7 +745,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-8">
           <div className="flex justify-center">
-            <TabsList className={`grid w-full ${user.role === 'admin' ? 'max-w-xl grid-cols-4' : 'max-w-md grid-cols-3'} bg-white border shadow-sm`}>
+            <TabsList className={`grid w-full ${user.role === 'admin' ? 'max-w-2xl grid-cols-5' : (user.role === 'operator' ? 'max-w-xl grid-cols-3' : 'max-w-md grid-cols-3')} bg-white border shadow-sm`}>
               <TabsTrigger value="dashboard" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
                 <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
               </TabsTrigger>
@@ -646,9 +756,14 @@ export default function App() {
                 <Calculator className="w-4 h-4 mr-2" /> Comissões
               </TabsTrigger>
               {user.role === 'admin' && (
-                <TabsTrigger value="users" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
-                  <Shield className="w-4 h-4 mr-2" /> Usuários
-                </TabsTrigger>
+                <>
+                  <TabsTrigger value="logs" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+                    <ClipboardList className="w-4 h-4 mr-2" /> Logs
+                  </TabsTrigger>
+                  <TabsTrigger value="users" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+                    <Shield className="w-4 h-4 mr-2" /> Usuários
+                  </TabsTrigger>
+                </>
               )}
             </TabsList>
           </div>
@@ -696,8 +811,14 @@ export default function App() {
           </TabsContent>
 
           {user.role === 'admin' && (
+            <TabsContent value="logs" className="mt-0 focus-visible:outline-none">
+              <SystemLogs />
+            </TabsContent>
+          )}
+
+          {user.role === 'admin' && (
             <TabsContent value="users" className="mt-0 focus-visible:outline-none">
-              <UserManagement />
+              <UserManagement onLog={saveLog} currentUser={user} />
             </TabsContent>
           )}
         </Tabs>

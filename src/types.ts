@@ -43,10 +43,19 @@ export interface CommissionResult {
   finalCommission: number;
 }
 
-export type UserRole = 'admin' | 'viewer';
+export type UserRole = 'admin' | 'operator' | 'viewer';
 
 export interface UserProfile {
   id: string;
   username: string;
   role: UserRole;
+}
+
+export interface SystemLog {
+  id?: string;
+  created_at?: string;
+  username: string;
+  action: string;
+  details: string;
+  category: 'O.S.' | 'Técnico' | 'Equipe' | 'Usuário' | 'Sistema';
 }

@@ -19,7 +19,8 @@ interface CommissionsProps {
   userRole?: UserRole;
 }
 
-export default function Commissions({ technicians, teams, orders, monthlySla, onUpdateSla, currentMonth }: CommissionsProps) {
+export default function Commissions({ technicians, teams, orders, monthlySla, onUpdateSla, currentMonth, userRole }: CommissionsProps) {
+  const isAdmin = userRole === 'admin';
   const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
 
   const commissionData = useMemo(() => {
@@ -335,6 +336,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                           value={monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100}
                           onChange={(e) => onUpdateSla(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
                           className="h-8 w-20 text-center text-sm font-bold border-amber-200 focus-visible:ring-amber-500"
+                          disabled={!isAdmin}
                         />
                         <span className="text-xs font-bold text-amber-600">
                           x {((monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100) / 100).toFixed(2)}

@@ -25,6 +25,7 @@ interface DashboardProps {
 
 export default function Dashboard({ orders, technicians, teams, onAddOrder, onUpdateOrder, onDeleteOrder, userRole }: DashboardProps) {
   const isAdmin = userRole === 'admin';
+  const canManageOS = isAdmin || userRole === 'operator';
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
@@ -302,7 +303,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
             onChange={(e) => setFilterMonth(e.target.value)}
             className="w-40"
           />
-          {isAdmin ? (
+          {canManageOS ? (
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) resetForm(); }}>
               <DialogTrigger render={<Button className="bg-purple-600 hover:bg-purple-700" />}>
                 <Plus className="w-4 h-4 mr-2" /> Nova O.S.
@@ -422,9 +423,9 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!isAdmin && (
+            {!canManageOS && (
               <div className="p-3 bg-white border border-purple-100 text-purple-600 rounded-lg text-xs flex items-center gap-2 mb-2">
-                <Lock className="w-4 h-4" /> Acesso restrito para administradores.
+                <Lock className="w-4 h-4" /> Acesso restrito.
               </div>
             )}
             <div className="space-y-2">
@@ -435,12 +436,12 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 onChange={(e) => setProtocol(e.target.value)} 
                 placeholder="Ex: OS-2024-001" 
                 className="bg-white"
-                disabled={!isAdmin}
+                disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="quick-responsible" className="text-xs font-bold uppercase text-slate-500">Responsável</Label>
-              <Select value={responsibleId} onValueChange={setResponsibleId} disabled={!isAdmin}>
+              <Select value={responsibleId} onValueChange={setResponsibleId} disabled={!canManageOS}>
                 <SelectTrigger id="quick-responsible" className="bg-white">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -464,7 +465,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 value={openingDate} 
                 onChange={(e) => setOpeningDate(e.target.value)} 
                 className="bg-white"
-                disabled={!isAdmin}
+                disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
@@ -475,7 +476,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 onChange={(e) => setDescription(e.target.value)} 
                 placeholder="Detalhes..." 
                 className="bg-white"
-                disabled={!isAdmin}
+                disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
@@ -486,7 +487,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 onChange={(e) => setObservation(e.target.value)} 
                 placeholder="Obs..." 
                 className="bg-white"
-                disabled={!isAdmin}
+                disabled={!canManageOS}
               />
             </div>
             {formError && (
@@ -495,7 +496,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                 {formError}
               </div>
             )}
-            <Button onClick={handleSave} className="w-full bg-purple-600 hover:bg-purple-700 mt-2" disabled={!isAdmin}>
+            <Button onClick={handleSave} className="w-full bg-purple-600 hover:bg-purple-700 mt-2" disabled={!canManageOS}>
               Abrir Ordem de Serviço
             </Button>
             <p className="text-[10px] text-center text-slate-400 italic">
@@ -722,49 +723,55 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5 min-w-[160px]">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={(e) => { e.stopPropagation(); onDeleteOrder(order.protocol); }} 
-                                className="h-8 w-8 text-rose-600"
-                                title="Excluir O.S."
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              {order.status !== 'Concluída' && !isMovedFromThisDay && (
+                              {canManageOS && (
                                 <>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={(e) => { e.stopPropagation(); handleQuickClose(order); }} 
-                                    className="h-8 w-8 text-emerald-600"
-                                    title="Concluir O.S."
-                                  >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={(e) => { e.stopPropagation(); handleMoveWithoutPrejudice(order); }} 
-                                    className="h-8 w-8 text-blue-600"
-                                    title="Remarcar p/ amanhã (SEM ATRASO - Imprevisto)"
-                                  >
-                                    <CalendarDays className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={(e) => { e.stopPropagation(); handleMoveToNextDay(order); }} 
-                                    className="h-8 w-8 text-amber-600"
-                                    title="Mover para amanhã (COM ATRASO)"
-                                  >
-                                    <ArrowRightCircle className="h-4 w-4" />
+                                  {isAdmin && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={(e) => { e.stopPropagation(); onDeleteOrder(order.protocol); }} 
+                                      className="h-8 w-8 text-rose-600"
+                                      title="Excluir O.S."
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {order.status !== 'Concluída' && !isMovedFromThisDay && (
+                                    <>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={(e) => { e.stopPropagation(); handleQuickClose(order); }} 
+                                        className="h-8 w-8 text-emerald-600"
+                                        title="Concluir O.S."
+                                      >
+                                        <CheckCircle2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={(e) => { e.stopPropagation(); handleMoveWithoutPrejudice(order); }} 
+                                        className="h-8 w-8 text-blue-600"
+                                        title="Remarcar p/ amanhã (SEM ATRASO - Imprevisto)"
+                                      >
+                                        <CalendarDays className="h-4 w-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={(e) => { e.stopPropagation(); handleMoveToNextDay(order); }} 
+                                        className="h-8 w-8 text-amber-600"
+                                        title="Mover para amanhã (COM ATRASO)"
+                                      >
+                                        <ArrowRightCircle className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(order); }} className="h-8 w-8 text-purple-600">
+                                    <Edit2 className="h-4 w-4" />
                                   </Button>
                                 </>
                               )}
-                              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(order); }} className="h-8 w-8 text-purple-600">
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
