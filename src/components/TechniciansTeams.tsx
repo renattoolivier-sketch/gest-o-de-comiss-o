@@ -254,6 +254,16 @@ BEGIN;
     system_backups,
     system_logs;
 COMMIT;
+
+-- 9. Desabilitar Segurança de Linha (RLS) para facilitar o uso interno
+-- IMPORTANTE: Execute estas linhas para permitir que o aplicativo salve dados livremente
+ALTER TABLE technicians DISABLE ROW LEVEL SECURITY;
+ALTER TABLE teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE service_orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE monthly_sla DISABLE ROW LEVEL SECURITY;
+ALTER TABLE app_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE system_backups DISABLE ROW LEVEL SECURITY;
+ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
                         `}</pre>
                       </div>
                     </div>

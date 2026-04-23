@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ServiceOrder, Technician, Team, Status, UserRole } from '@/src/types';
 import MonthlySpreadsheet from './MonthlySpreadsheet';
-import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock, CalendarDays } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock, CalendarDays, Search, User } from 'lucide-react';
 import { format, parseISO, isSameMonth, addDays, getHours } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -27,6 +27,9 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   const isAdmin = userRole === 'admin';
   const canManageOS = isAdmin || userRole === 'operator';
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchedOrder, setSearchedOrder] = useState<ServiceOrder | null>(null);
+  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
   const [selectedResponsible, setSelectedResponsible] = useState<{ id: string, name: string, date?: string } | null>(null);
@@ -84,6 +87,19 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
       }
     });
   }, [orders, filterMonth]);
+
+  const handleSearchProtocol = () => {
+    if (!searchQuery.trim()) return;
+    
+    const found = orders.find(o => o.protocol.toLowerCase() === searchQuery.toLowerCase().trim());
+    if (found) {
+      setSearchedOrder(found);
+      setIsSearchDialogOpen(true);
+      setSearchQuery('');
+    } else {
+      alert('Ordem de Serviço não encontrada.');
+    }
+  };
 
   const stats = useMemo(() => {
     // For statistical calculation, we only count orders that were either:
@@ -296,12 +312,32 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
           <h2 className="text-2xl font-bold tracking-tight">Dashboard Operacional</h2>
           <p className="text-muted-foreground">Gerencie suas ordens de serviço e acompanhe a performance.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-grow sm:flex-grow-0 flex gap-2">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Nº do Protocolo..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchProtocol()}
+                className="pl-9 w-full sm:w-48 bg-white"
+              />
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSearchProtocol}
+              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              Buscar
+            </Button>
+          </div>
           <Input 
             type="month" 
             value={filterMonth} 
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40 bg-white"
           />
           {canManageOS ? (
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) resetForm(); }}>
@@ -793,6 +829,103 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
           onDeleteOrder={onDeleteOrder}
         />
       </div>
+
+      {/* Protocol Search Result Dialog */}
+      <Dialog open={isSearchDialogOpen} onOpenChange={setIsSearchDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader className="bg-purple-600 text-white p-6 -m-6 mb-6">
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Search className="w-5 h-5" /> Detalhes da O.S.
+            </DialogTitle>
+          </DialogHeader>
+          
+          {searchedOrder && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Protocolo</p>
+                  <p className="text-lg font-mono font-bold text-slate-700">{searchedOrder.protocol}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Status</p>
+                  <div className="mt-1">{getStatusBadge(searchedOrder.status)}</div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 p-2 bg-purple-100 rounded-lg">
+                    <User className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Responsável</p>
+                    <p className="font-semibold text-slate-800">
+                      {(() => {
+                        const resp = getResponsibleName(searchedOrder.responsibleId);
+                        return typeof resp === 'string' ? resp : resp.name;
+                      })()}
+                    </p>
+                    {(() => {
+                      const resp = getResponsibleName(searchedOrder.responsibleId);
+                      return typeof resp !== 'string' && resp.members && (
+                        <p className="text-xs text-muted-foreground italic">Membros: {resp.members}</p>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 p-2 bg-indigo-100 rounded-lg">
+                      <Clock className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Abertura</p>
+                      <p className="text-sm font-medium">
+                        {searchedOrder.openingDate ? format(parseISO(searchedOrder.openingDate), 'dd/MM/yyyy') : '-'}
+                      </p>
+                      {searchedOrder.originalOpeningDate && searchedOrder.originalOpeningDate !== searchedOrder.openingDate && (
+                        <p className="text-[10px] text-indigo-500 italic">Original: {format(parseISO(searchedOrder.originalOpeningDate), 'dd/MM/yyyy')}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 p-2 bg-emerald-100 rounded-lg">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Encerramento</p>
+                      <p className="text-sm font-medium">
+                        {searchedOrder.closingDate ? format(parseISO(searchedOrder.closingDate), 'dd/MM/yyyy') : 'Em aberto'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Descrição</p>
+                    <p className="text-sm text-slate-700 leading-relaxed">{searchedOrder.description || 'Sem descrição'}</p>
+                  </div>
+                  {searchedOrder.observation && (
+                    <div className="pt-3 border-t border-slate-200">
+                      <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Observação</p>
+                      <p className="text-sm text-slate-600 italic">{searchedOrder.observation}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setIsSearchDialogOpen(false)} className="bg-purple-600 hover:bg-purple-700 w-full">
+              Fechar Detalhes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 gap-6">
         <Card>
