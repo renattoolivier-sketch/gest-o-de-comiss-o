@@ -251,7 +251,8 @@ BEGIN;
     service_orders, 
     monthly_sla, 
     app_users, 
-    system_backups;
+    system_backups,
+    system_logs;
 COMMIT;
                         `}</pre>
                       </div>

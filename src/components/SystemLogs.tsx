@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ClipboardList, Search, Clock, User, Info, Filter } from 'lucide-react';
+import { ClipboardList, Search, Clock, User, Info, Filter, AlertCircle, RefreshCcw } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
 import { SystemLog } from '@/src/types';
 import { format } from 'date-fns';
@@ -15,9 +16,11 @@ export default function SystemLogs() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchLogs = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('system_logs')
@@ -27,8 +30,13 @@ export default function SystemLogs() {
       
       if (error) throw error;
       setLogs(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao buscar logs:', err);
+      if (err.message?.includes('relation "system_logs" does not exist')) {
+        setError('A tabela de logs ainda não foi criada no Supabase. Use o botão "Configurar Banco" na aba Técnicos.');
+      } else {
+        setError('Ocorreu um erro ao carregar os registros de atividade.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -110,12 +118,33 @@ export default function SystemLogs() {
       </div>
 
       <Card className="shadow-md border-purple-100">
-        <CardHeader className="bg-slate-50/50 border-b pb-4">
+        <CardHeader className="bg-white border-b pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-purple-600" /> Linha do Tempo de Edições
           </CardTitle>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={fetchLogs} 
+            disabled={isLoading}
+            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+          >
+            <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
         </CardHeader>
         <CardContent className="p-0">
+          {error && (
+            <div className="p-8 text-center space-y-4">
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-xl border border-rose-100 flex items-center gap-3 justify-center max-w-lg mx-auto">
+                <AlertCircle className="w-5 h-5" />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Dica: Verifique se você executou o item 7 do script SQL em Configurar Banco.
+              </p>
+            </div>
+          )}
           <ScrollArea className="h-[600px]">
             {isLoading && logs.length === 0 ? (
               <div className="flex justify-center py-20 text-muted-foreground italic">
