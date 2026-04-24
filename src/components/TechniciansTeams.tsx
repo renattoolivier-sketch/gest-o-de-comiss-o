@@ -178,8 +178,8 @@ export default function TechniciansTeams({
                       <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
                         <pre>{`
 -- 1. Tabela de Usuários
-CREATE TABLE IF NOT EXISTS app_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'viewer',
@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS app_users (
 );
 
 -- 2. Tabela de Técnicos
-CREATE TABLE IF NOT EXISTS technicians (
+CREATE TABLE IF NOT EXISTS public.technicians (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   role TEXT NOT NULL,
@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS technicians (
 );
 
 -- 3. Tabela de Equipes
-CREATE TABLE IF NOT EXISTS teams (
+CREATE TABLE IF NOT EXISTS public.teams (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   "leaderId" TEXT,
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS teams (
 );
 
 -- 4. Tabela de Ordens de Serviço
-CREATE TABLE IF NOT EXISTS service_orders (
+CREATE TABLE IF NOT EXISTS public.service_orders (
   protocol TEXT PRIMARY KEY,
   "responsibleId" TEXT NOT NULL,
   "isTeam" BOOLEAN NOT NULL,
@@ -221,8 +221,8 @@ CREATE TABLE IF NOT EXISTS service_orders (
 );
 
 -- 5. Tabela de SLA Mensal
-CREATE TABLE IF NOT EXISTS monthly_sla (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS public.monthly_sla (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   month TEXT NOT NULL,
   tech_id TEXT NOT NULL,
   value NUMERIC NOT NULL,
@@ -230,24 +230,24 @@ CREATE TABLE IF NOT EXISTS monthly_sla (
 );
 
 -- 6. Tabela de Conformidade Mensal
-CREATE TABLE IF NOT EXISTS monthly_conformity (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS public.monthly_conformity (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   month TEXT NOT NULL,
   tech_id TEXT NOT NULL,
   value NUMERIC NOT NULL,
   UNIQUE(month, tech_id)
 );
 
--- 6. Tabela de Backups do Sistema
-CREATE TABLE IF NOT EXISTS system_backups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 7. Tabela de Backups do Sistema
+CREATE TABLE IF NOT EXISTS public.system_backups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   data JSONB NOT NULL
 );
 
--- 7. Tabela de Logs do Sistema
-CREATE TABLE IF NOT EXISTS system_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 8. Tabela de Logs do Sistema
+CREATE TABLE IF NOT EXISTS public.system_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   username TEXT NOT NULL,
   action TEXT NOT NULL,
@@ -255,35 +255,29 @@ CREATE TABLE IF NOT EXISTS system_logs (
   category TEXT NOT NULL
 );
 
--- 7. Habilitar Realtime (Sincronização em Tempo Real)
--- IMPORTANTE: Execute estas linhas para que todos os usuários vejam as mudanças na hora
-BEGIN;
-  -- Remove a publicação se já existir para evitar erros
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  
-  -- Cria a publicação para todas as tabelas necessárias
-  CREATE PUBLICATION supabase_realtime FOR TABLE 
-    technicians, 
-    teams, 
-    service_orders, 
-    monthly_sla, 
-    monthly_conformity,
-    app_users, 
-    system_backups,
-    system_logs;
-COMMIT;
+-- 9. Desabilitar RLS (Row Level Security) para todas as tabelas
+ALTER TABLE IF EXISTS public.technicians DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.service_orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.monthly_sla DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.monthly_conformity DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.app_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.system_backups DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.system_logs DISABLE ROW LEVEL SECURITY;
 
--- 9. Desabilitar Segurança de Linha (RLS) para facilitar o uso interno
--- IMPORTANTE: Execute estas linhas para permitir que o aplicativo salve dados livremente
-ALTER TABLE technicians DISABLE ROW LEVEL SECURITY;
-ALTER TABLE teams DISABLE ROW LEVEL SECURITY;
-ALTER TABLE service_orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE monthly_sla DISABLE ROW LEVEL SECURITY;
-ALTER TABLE monthly_conformity DISABLE ROW LEVEL SECURITY;
-ALTER TABLE app_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE system_backups DISABLE ROW LEVEL SECURITY;
-ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
+-- 10. Habilitar Realtime
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime FOR TABLE 
+    public.technicians, 
+    public.teams, 
+    public.service_orders, 
+    public.monthly_sla, 
+    public.monthly_conformity,
+    public.app_users, 
+    public.system_backups,
+    public.system_logs;
+COMMIT;
                         `}</pre>
                       </div>
                     </div>
