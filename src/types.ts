@@ -4,7 +4,6 @@ export type TechCategory = 'Rede' | 'Campo' | 'Manutenção';
 export interface Technician {
   id: string;
   name: string;
-  salaryBase: number;
   role: string;
   category: TechCategory;
   fixedCommission?: number; // Only for Manutenção category
@@ -35,7 +34,6 @@ export interface CommissionResult {
   technicianId: string;
   technicianName: string;
   category: TechCategory;
-  baseSalary: number;
   openOS: number;
   closedOS: number;
   delayedOS: number;

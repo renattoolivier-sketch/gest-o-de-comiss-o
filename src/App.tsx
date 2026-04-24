@@ -20,10 +20,10 @@ import { Button } from '@/components/ui/button';
 
 // Initial Mock Data
 const INITIAL_TECHS: Technician[] = [
-  { id: 't1', name: 'João Silva', salaryBase: 0, role: 'Líder de Rede', category: 'Rede' },
-  { id: 't2', name: 'Maria Oliveira', salaryBase: 0, role: 'Técnico de Campo', category: 'Campo' },
-  { id: 't3', name: 'Carlos Santos', salaryBase: 0, role: 'Técnico de Rede', category: 'Rede' },
-  { id: 't4', name: 'Ana Costa', salaryBase: 0, role: 'Instaladora Campo', category: 'Campo' },
+  { id: 't1', name: 'João Silva', role: 'Líder de Rede', category: 'Rede' },
+  { id: 't2', name: 'Maria Oliveira', role: 'Técnico de Campo', category: 'Campo' },
+  { id: 't3', name: 'Carlos Santos', role: 'Técnico de Rede', category: 'Rede' },
+  { id: 't4', name: 'Ana Costa', role: 'Instaladora Campo', category: 'Campo' },
 ];
 
 const INITIAL_TEAMS: Team[] = [
@@ -91,27 +91,76 @@ export default function App() {
       }
 
       // 1. Try to fetch from Supabase
-      const { data: techData, error: techError } = await supabase.from('technicians').select('*');
-      const { data: teamData, error: teamError } = await supabase.from('teams').select('*');
-      const { data: orderData, error: orderError } = await supabase.from('service_orders').select('*');
-      const { data: slaData, error: slaError } = await supabase.from('monthly_sla').select('*');
-      const { data: confData, error: confError } = await supabase.from('monthly_conformity').select('*');
+      const results = await Promise.allSettled([
+        supabase.from('technicians').select('*'),
+        supabase.from('teams').select('*'),
+        supabase.from('service_orders').select('*'),
+        supabase.from('monthly_sla').select('*'),
+        supabase.from('monthly_conformity').select('*')
+      ]);
 
-      if (techError || teamError || orderError || slaError || confError) {
-        console.warn('Supabase partial/total fetch failure. Falling back to local/cached data.');
-        const mainError = techError || teamError || orderError || slaError || confError;
+      const [techRes, teamRes, orderRes, slaRes, confRes] = results;
+      
+      const fetchErrors = [];
+      if (techRes.status === 'fulfilled' && techRes.value.error) fetchErrors.push(techRes.value.error.message);
+      if (teamRes.status === 'fulfilled' && teamRes.value.error) fetchErrors.push(teamRes.value.error.message);
+      if (orderRes.status === 'fulfilled' && orderRes.value.error) fetchErrors.push(orderRes.value.error.message);
+      if (slaRes.status === 'fulfilled' && slaRes.value.error) fetchErrors.push(slaRes.value.error.message);
+      if (confRes.status === 'fulfilled' && confRes.value.error) fetchErrors.push(confRes.value.error.message);
+
+      if (fetchErrors.length > 0) {
+        console.warn('Supabase fetch failure details:', fetchErrors);
+        const mainError = fetchErrors[0];
         
-        if (mainError?.message.includes('relation "technicians" does not exist') || 
-            mainError?.message.includes('relation "app_users" does not exist')) {
-          setDbError('Banco de dados não configurado. Por favor, use o botão "Configurar Banco" na aba Técnicos.');
+        if (mainError.includes('relation') && mainError.includes('does not exist')) {
+          setDbError(`Tabela ausente: ${mainError.split('"')[1] || mainError}`);
         } else {
-          setDbError(`Supabase: ${mainError?.message || 'Erro de conexão'}`);
+          setDbError(`Supabase: ${mainError}`);
         }
         
-        setIsOnline(false);
-        loadFallbackData();
-        return;
+        // Only fallback to local if essential tables fail
+        if (techRes.status === 'fulfilled' && techRes.value.error?.message.includes('relation "technicians" does not exist')) {
+          setIsOnline(false);
+          loadFallbackData();
+          return;
+        }
       }
+
+      const techData = techRes.status === 'fulfilled' && !techRes.value.error 
+        ? techRes.value.data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            role: t.role,
+            category: t.category,
+            fixedCommission: t.fixedCommission !== undefined ? t.fixedCommission : (t.fixed_commission !== undefined ? t.fixed_commission : t.fixedcommission)
+          })) 
+        : [];
+
+      const teamData = teamRes.status === 'fulfilled' && !teamRes.value.error 
+        ? teamRes.value.data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            leaderId: t.leaderId || t.leader_id || t.leaderid,
+            memberIds: t.memberIds || t.member_ids || t.memberids
+          })) 
+        : [];
+
+      const orderData = orderRes.status === 'fulfilled' && !orderRes.value.error 
+        ? orderRes.value.data.map((o: any) => ({
+            protocol: o.protocol,
+            responsibleId: o.responsibleId || o.responsible_id || o.responsibleid,
+            isTeam: o.isTeam !== undefined ? o.isTeam : (o.is_team !== undefined ? o.is_team : o.isteam),
+            openingDate: o.openingDate || o.opening_date || o.openingdate,
+            originalOpeningDate: o.originalOpeningDate || o.original_opening_date || o.originalopeningdate,
+            isDelayed: o.isDelayed !== undefined ? o.isDelayed : (o.is_delayed !== undefined ? o.is_delayed : o.isdelayed),
+            closingDate: o.closingDate || o.closing_date || o.closingdate,
+            status: o.status,
+            description: o.description,
+            observation: o.observation
+          })) 
+        : [];
+      const slaData = slaRes.status === 'fulfilled' && !slaRes.value.error ? slaRes.value.data : [];
+      const confData = confRes.status === 'fulfilled' && !confRes.value.error ? confRes.value.data : [];
 
       // 2. Use Supabase data (even if some tables are empty)
       setTechnicians(techData || []);
@@ -120,7 +169,7 @@ export default function App() {
       
       // Reconstruct SLA object
       const slaObj: Record<string, Record<string, number>> = {};
-      slaData?.forEach(item => {
+      slaData?.forEach((item: any) => {
         if (!slaObj[item.month]) slaObj[item.month] = {};
         slaObj[item.month][item.tech_id] = item.value;
       });
@@ -128,14 +177,14 @@ export default function App() {
 
       // Reconstruct Conformity object
       const confObj: Record<string, Record<string, number>> = {};
-      confData?.forEach(item => {
+      confData?.forEach((item: any) => {
         if (!confObj[item.month]) confObj[item.month] = {};
         confObj[item.month][item.tech_id] = item.value;
       });
       setMonthlyConformity(confObj);
 
       setIsOnline(true);
-      setDbError(null);
+      if (fetchErrors.length === 0) setDbError(null);
 
       // 3. If everything is empty, it might be a new setup, so we could migrate mock data
       if ((!techData || techData.length === 0) && (!orderData || orderData.length === 0)) {
@@ -171,9 +220,15 @@ export default function App() {
     fetchData();
 
     // Auto-refresh when window gains focus
-    const handleFocus = () => fetchData(false);
+    const handleFocus = () => {
+      console.log('Window focused, refreshing data...');
+      fetchData(false);
+    };
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchData]);
 
   const loadFallbackData = () => {
@@ -205,7 +260,7 @@ export default function App() {
           name: t.name,
           role: t.role,
           category: t.category,
-          fixedCommission: t.fixedCommission
+          fixedCommission: t.fixedCommission || 0
         })));
       }
 
@@ -274,30 +329,49 @@ export default function App() {
       .channel('technicians-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'technicians' }, (payload) => {
         console.log('Evento Technicians:', payload.eventType, payload.new);
-        if (payload.eventType === 'INSERT') {
+        const newData = payload.new as any;
+        const mapped = newData ? {
+          id: newData.id,
+          name: newData.name,
+          role: newData.role,
+          category: newData.category,
+          fixedCommission: newData.fixedCommission !== undefined ? newData.fixedCommission : (newData.fixed_commission !== undefined ? newData.fixed_commission : newData.fixedcommission)
+        } as Technician : null;
+
+        if (payload.eventType === 'INSERT' && mapped) {
           setTechnicians(prev => {
-            if (prev.find(t => t.id === payload.new.id)) return prev;
-            return [...prev, payload.new as Technician];
+            if (prev.find(t => t.id === mapped.id)) return prev;
+            return [...prev, mapped];
           });
-        } else if (payload.eventType === 'UPDATE') {
-          setTechnicians(prev => prev.map(t => t.id === payload.new.id ? payload.new as Technician : t));
+        } else if (payload.eventType === 'UPDATE' && mapped) {
+          setTechnicians(prev => prev.map(t => t.id === mapped.id ? mapped : t));
         } else if (payload.eventType === 'DELETE') {
           setTechnicians(prev => prev.filter(t => t.id !== payload.old.id));
         }
       })
-      .subscribe((status) => console.log('Status Canal Técnicos:', status));
+      .subscribe((status) => {
+        console.log('Status Canal Técnicos:', status);
+        if (status === 'SUBSCRIBED') fetchData(false);
+      });
 
     const teamsChannel = supabase
       .channel('teams-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
-        console.log('Evento Teams:', payload.eventType, payload.new);
-        if (payload.eventType === 'INSERT') {
+        const newData = payload.new as any;
+        const mapped = newData ? {
+          id: newData.id,
+          name: newData.name,
+          leaderId: newData.leaderId || newData.leader_id || newData.leaderid,
+          memberIds: newData.memberIds || newData.member_ids || newData.memberids
+        } as Team : null;
+
+        if (payload.eventType === 'INSERT' && mapped) {
           setTeams(prev => {
-            if (prev.find(t => t.id === payload.new.id)) return prev;
-            return [...prev, payload.new as Team];
+            if (prev.find(t => t.id === mapped.id)) return prev;
+            return [...prev, mapped];
           });
-        } else if (payload.eventType === 'UPDATE') {
-          setTeams(prev => prev.map(t => t.id === payload.new.id ? payload.new as Team : t));
+        } else if (payload.eventType === 'UPDATE' && mapped) {
+          setTeams(prev => prev.map(t => t.id === mapped.id ? mapped : t));
         } else if (payload.eventType === 'DELETE') {
           setTeams(prev => prev.filter(t => t.id !== payload.old.id));
         }
@@ -307,14 +381,27 @@ export default function App() {
     const ordersChannel = supabase
       .channel('orders-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders' }, (payload) => {
-        console.log('Evento Orders:', payload.eventType, payload.new);
-        if (payload.eventType === 'INSERT') {
+        const newData = payload.new as any;
+        const mapped = newData ? {
+          protocol: newData.protocol,
+          responsibleId: newData.responsibleId || newData.responsible_id || newData.responsibleid,
+          isTeam: newData.isTeam !== undefined ? newData.isTeam : (newData.is_team !== undefined ? newData.is_team : newData.isteam),
+          openingDate: newData.openingDate || newData.opening_date || newData.openingdate,
+          originalOpeningDate: newData.originalOpeningDate || newData.original_opening_date || newData.originalopeningdate,
+          isDelayed: newData.isDelayed !== undefined ? newData.isDelayed : (newData.is_delayed !== undefined ? newData.is_delayed : newData.isdelayed),
+          closingDate: newData.closingDate || newData.closing_date || newData.closingdate,
+          status: newData.status,
+          description: newData.description,
+          observation: newData.observation
+        } as ServiceOrder : null;
+
+        if (payload.eventType === 'INSERT' && mapped) {
           setOrders(prev => {
-            if (prev.find(o => o.protocol === payload.new.protocol)) return prev;
-            return [...prev, payload.new as ServiceOrder];
+            if (prev.find(o => o.protocol === mapped.protocol)) return prev;
+            return [...prev, mapped];
           });
-        } else if (payload.eventType === 'UPDATE') {
-          setOrders(prev => prev.map(o => o.protocol === payload.new.protocol ? payload.new as ServiceOrder : o));
+        } else if (payload.eventType === 'UPDATE' && mapped) {
+          setOrders(prev => prev.map(o => o.protocol === mapped.protocol ? mapped : o));
         } else if (payload.eventType === 'DELETE') {
           setOrders(prev => prev.filter(o => o.protocol !== payload.old.protocol));
         }
@@ -335,9 +422,7 @@ export default function App() {
             }
           }));
         } else if (payload.eventType === 'DELETE') {
-          const item = payload.old;
-          // Note: old payload might only have the ID if not configured for full row
-          fetchData(false); // Refresh all if delete happens to be safe
+          fetchData(false);
         }
       })
       .subscribe((status) => console.log('Status Canal SLA:', status));
@@ -363,11 +448,7 @@ export default function App() {
 
     return () => {
       console.log('Limpando canais Realtime...');
-      supabase.removeChannel(techniciansChannel);
-      supabase.removeChannel(teamsChannel);
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(slaChannel);
-      supabase.removeChannel(conformityChannel);
+      supabase.removeAllChannels();
     };
   }, [isOnline, fetchData]);
 
@@ -383,7 +464,7 @@ export default function App() {
   }, [technicians, teams, orders, monthlySla, monthlyConformity, isLoading]);
 
   // Handlers with Supabase Sync
-  const handleAddOrder = async (order: ServiceOrder) => {
+  const onAddOrder = async (order: ServiceOrder) => {
     setOrders(prev => [...prev, order]);
     saveLog({
       username: user?.username || 'Sistema',
@@ -407,13 +488,11 @@ export default function App() {
       if (error) throw error;
     } catch (e: any) {
       console.error('Erro ao salvar O.S. no Supabase:', e);
-      if (e.message?.includes('column "observation" of relation "service_orders" does not exist')) {
-        alert('AVISO: O campo "Observação" não existe no seu banco de dados Supabase. Execute o comando SQL: ALTER TABLE service_orders ADD COLUMN observation TEXT;');
-      }
+      alert(`Erro Supabase: ${e.message}`);
     }
   };
 
-  const handleUpdateOrder = async (order: ServiceOrder) => {
+  const onUpdateOrder = async (order: ServiceOrder) => {
     const oldOrder = orders.find(o => o.protocol === order.protocol);
     const statusChanged = oldOrder && oldOrder.status !== order.status;
     
@@ -425,6 +504,7 @@ export default function App() {
       details: `Protocolo: ${order.protocol}`,
       category: 'O.S.'
     });
+    
     try {
       const { error } = await supabase.from('service_orders').update({
         responsibleId: order.responsibleId,
@@ -440,9 +520,7 @@ export default function App() {
       if (error) throw error;
     } catch (e: any) {
       console.error('Erro ao atualizar O.S. no Supabase:', e);
-      if (e.message?.includes('column "observation" of relation "service_orders" does not exist')) {
-        alert('AVISO: O campo "Observação" não existe no seu banco de dados Supabase. Para que as observações sejam salvas permanentemente, execute o comando SQL no painel do Supabase: ALTER TABLE service_orders ADD COLUMN observation TEXT;');
-      }
+      alert(`Erro Supabase: ${e.message}`);
     }
   };
 
@@ -465,13 +543,14 @@ export default function App() {
       details: `Nome: ${tech.name} | Categoria: ${tech.category}`,
       category: 'Técnico'
     });
-    await supabase.from('technicians').insert([{
+    const { error } = await supabase.from('technicians').insert([{
       id: tech.id,
       name: tech.name,
       role: tech.role,
       category: tech.category,
-      fixedCommission: tech.fixedCommission
+      fixedCommission: tech.fixedCommission || 0
     }]);
+    if (error) alert(`Erro Supabase: ${error.message}`);
   };
 
   const handleUpdateTech = async (tech: Technician) => {
@@ -479,15 +558,16 @@ export default function App() {
     saveLog({
       username: user?.username || 'Sistema',
       action: 'Dados do Técnico Editados',
-      details: `Nome: ${tech.name}`,
+      details: `Nome: ${tech.name} | Função: ${tech.role}`,
       category: 'Técnico'
     });
-    await supabase.from('technicians').update({
+    const { error } = await supabase.from('technicians').update({
       name: tech.name,
       role: tech.role,
       category: tech.category,
-      fixedCommission: tech.fixedCommission
+      fixedCommission: tech.fixedCommission || 0
     }).eq('id', tech.id);
+    if (error) alert(`Erro Supabase: ${error.message}`);
   };
 
   const handleDeleteTech = async (id: string) => {
@@ -510,12 +590,13 @@ export default function App() {
       details: `Nome: ${team.name}`,
       category: 'Equipe'
     });
-    await supabase.from('teams').insert([{
+    const { error } = await supabase.from('teams').insert([{
       id: team.id,
       name: team.name,
       leaderId: team.leaderId,
       memberIds: team.memberIds
     }]);
+    if (error) alert(`Erro Supabase: ${error.message}`);
   };
 
   const handleUpdateTeam = async (team: Team) => {
@@ -526,11 +607,12 @@ export default function App() {
       details: `Nome: ${team.name}`,
       category: 'Equipe'
     });
-    await supabase.from('teams').update({
+    const { error } = await supabase.from('teams').update({
       name: team.name,
       leaderId: team.leaderId,
       memberIds: team.memberIds
     }).eq('id', team.id);
+    if (error) alert(`Erro Supabase: ${error.message}`);
   };
 
   const handleDeleteTeam = async (id: string) => {
@@ -742,6 +824,25 @@ export default function App() {
     }
   };
 
+  const onForceSync = async () => {
+    setIsLoading(true);
+    try {
+      const savedTechs = JSON.parse(localStorage.getItem('telecom_techs') || '[]');
+      const savedTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
+      const savedOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
+      const savedSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
+      
+      await migrateToSupabase(savedTechs, savedTeams, savedOrders, savedSla);
+      alert('Sincronização concluída com sucesso!');
+      await fetchData(true);
+    } catch (e) {
+      console.error('Forced sync failed:', e);
+      alert('Erro na sincronização forçada.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-purple-50 flex items-center justify-center">
@@ -793,10 +894,16 @@ export default function App() {
               ) : (
                 <>
                   <CloudOff className="w-3 h-3 text-rose-500" />
-                  <span className="text-rose-600">Modo Offline (Local)</span>
+                  <span className="text-rose-600">Sincronização Offline</span>
                 </>
               )}
             </div>
+            {isOnline && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-emerald-600 uppercase">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                Tempo Real OK
+              </div>
+            )}
             <div className="flex items-center gap-3 border-l pl-4">
               <div className="hidden md:block text-right">
                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">
@@ -848,8 +955,8 @@ export default function App() {
               orders={orders} 
               technicians={technicians} 
               teams={teams}
-              onAddOrder={handleAddOrder}
-              onUpdateOrder={handleUpdateOrder}
+              onAddOrder={onAddOrder}
+              onUpdateOrder={onUpdateOrder}
               onDeleteOrder={handleDeleteOrder}
               userRole={user.role}
             />
@@ -869,6 +976,7 @@ export default function App() {
               onResetData={handleResetData}
               onSaveBackup={handleSaveBackup}
               onRestoreBackup={handleRestoreBackup}
+              onForceSync={onForceSync}
               userRole={user.role}
             />
           </TabsContent>

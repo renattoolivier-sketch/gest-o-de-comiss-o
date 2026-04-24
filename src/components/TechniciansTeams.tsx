@@ -27,6 +27,7 @@ interface TechniciansTeamsProps {
   onResetData: () => void;
   onSaveBackup: () => void;
   onRestoreBackup: () => void;
+  onForceSync?: () => void;
   userRole?: UserRole;
 }
 
@@ -34,7 +35,7 @@ export default function TechniciansTeams({
   technicians, teams, orders,
   onAddTechnician, onUpdateTechnician, onDeleteTechnician,
   onAddTeam, onUpdateTeam, onDeleteTeam, onResetData,
-  onSaveBackup, onRestoreBackup,
+  onSaveBackup, onRestoreBackup, onForceSync,
   userRole
 }: TechniciansTeamsProps) {
   const isAdmin = userRole === 'admin';
@@ -61,7 +62,6 @@ export default function TechniciansTeams({
       onUpdateTechnician({
         ...editingTechnician,
         name: techName,
-        salaryBase: 0,
         role: techRole,
         category: techCategory,
         fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
@@ -70,7 +70,6 @@ export default function TechniciansTeams({
       onAddTechnician({
         id: crypto.randomUUID(),
         name: techName,
-        salaryBase: 0,
         role: techRole,
         category: techCategory,
         fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
@@ -174,9 +173,11 @@ export default function TechniciansTeams({
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Script SQL para Criar Tabelas:</Label>
+                      <Label>Script SQL para Criar/Corrigir Tabelas:</Label>
                       <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
                         <pre>{`
+-- SCRIPT DE CONFIGURAÇÃO TOTAL (Execute no SQL Editor do Supabase)
+
 -- 1. Tabela de Usuários
 CREATE TABLE IF NOT EXISTS public.app_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -195,6 +196,8 @@ CREATE TABLE IF NOT EXISTS public.technicians (
   "fixedCommission" NUMERIC DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE public.technicians ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Rede';
+ALTER TABLE public.technicians ADD COLUMN IF NOT EXISTS "fixedCommission" NUMERIC DEFAULT 0;
 
 -- 3. Tabela de Equipes
 CREATE TABLE IF NOT EXISTS public.teams (
@@ -204,6 +207,8 @@ CREATE TABLE IF NOT EXISTS public.teams (
   "memberIds" TEXT[] NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS "leaderId" TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS "memberIds" TEXT[] DEFAULT '{}';
 
 -- 4. Tabela de Ordens de Serviço
 CREATE TABLE IF NOT EXISTS public.service_orders (
@@ -219,6 +224,13 @@ CREATE TABLE IF NOT EXISTS public.service_orders (
   observation TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "responsibleId" TEXT;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "isTeam" BOOLEAN;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "openingDate" TEXT;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "originalOpeningDate" TEXT;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "isDelayed" BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS "closingDate" TEXT;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS observation TEXT;
 
 -- 5. Tabela de SLA Mensal
 CREATE TABLE IF NOT EXISTS public.monthly_sla (
@@ -238,14 +250,14 @@ CREATE TABLE IF NOT EXISTS public.monthly_conformity (
   UNIQUE(month, tech_id)
 );
 
--- 7. Tabela de Backups do Sistema
+-- 7. Tabela de Backups
 CREATE TABLE IF NOT EXISTS public.system_backups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   data JSONB NOT NULL
 );
 
--- 8. Tabela de Logs do Sistema
+-- 8. Tabela de Logs
 CREATE TABLE IF NOT EXISTS public.system_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -255,31 +267,57 @@ CREATE TABLE IF NOT EXISTS public.system_logs (
   category TEXT NOT NULL
 );
 
--- 9. Desabilitar RLS (Row Level Security) para todas as tabelas
-ALTER TABLE IF EXISTS public.technicians DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.teams DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.service_orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.monthly_sla DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.monthly_conformity DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.app_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.system_backups DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.system_logs DISABLE ROW LEVEL SECURITY;
+-- 9. DESABILITAR RLS (Segurança de Linha) - NECESSÁRIO para sincronização externa
+ALTER TABLE public.technicians DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.service_orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_sla DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_conformity DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_backups DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_logs DISABLE ROW LEVEL SECURITY;
 
--- 10. Habilitar Realtime
+-- 10. CONFIGURAR REPLICA IDENTITY (Essencial para Realtime funcionar com TODOS os dados)
+ALTER TABLE public.technicians REPLICA IDENTITY FULL;
+ALTER TABLE public.teams REPLICA IDENTITY FULL;
+ALTER TABLE public.service_orders REPLICA IDENTITY FULL;
+ALTER TABLE public.monthly_sla REPLICA IDENTITY FULL;
+ALTER TABLE public.monthly_conformity REPLICA IDENTITY FULL;
+
+-- 11. HABILITAR PUBLICAÇÃO REALTIME
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR TABLE 
-    public.technicians, 
-    public.teams, 
-    public.service_orders, 
-    public.monthly_sla, 
-    public.monthly_conformity,
-    public.app_users, 
-    public.system_backups,
-    public.system_logs;
+  CREATE PUBLICATION supabase_realtime FOR ALL TABLES;
 COMMIT;
+
+-- 12. PERMISSÕES PARA O USUÁRIO ANONIMO
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, postgres;
+
+-- 13. LIMPEZA E MIGRAÇÃO DE DADOS (OPCIONAL)
+-- Use as linhas abaixo se precisar renomear categorias antigas no banco
+UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Informática';
                         `}</pre>
                       </div>
+                    </div>
+                    <div className="pt-4 border-t flex flex-col gap-3">
+                      <p className="text-xs font-bold text-slate-800">Ferramentas de Sincronização:</p>
+                      <Button 
+                        variant="secondary" 
+                        className="w-full h-9 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                        onClick={() => {
+                          if (confirm('Isso enviará todos os seus dados locais para o Supabase. Deseja continuar?')) {
+                            if (onForceSync) {
+                              onForceSync();
+                            } else {
+                              alert('Função de sincronização não disponível.');
+                            }
+                          }
+                        }}
+                      >
+                        <RefreshCcw className="w-3 h-3 mr-2" /> Enviar Dados Locais para Supabase
+                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground italic">
                       * Copie o código acima, vá ao seu projeto no Supabase, clique em "SQL Editor" e execute-o.
