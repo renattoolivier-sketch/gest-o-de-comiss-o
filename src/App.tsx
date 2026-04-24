@@ -20,14 +20,14 @@ import { Button } from '@/components/ui/button';
 
 // Initial Mock Data
 const INITIAL_TECHS: Technician[] = [
-  { id: 't1', name: 'João Silva', salaryBase: 2000, role: 'Técnico de Campo' },
-  { id: 't2', name: 'Maria Oliveira', salaryBase: 1850, role: 'Instaladora' },
-  { id: 't3', name: 'Carlos Santos', salaryBase: 2200, role: 'Líder Técnico' },
-  { id: 't4', name: 'Ana Costa', salaryBase: 1850, role: 'Reparadora' },
+  { id: 't1', name: 'João Silva', salaryBase: 0, role: 'Líder de Rede', category: 'Rede' },
+  { id: 't2', name: 'Maria Oliveira', salaryBase: 0, role: 'Técnico de Campo', category: 'Campo' },
+  { id: 't3', name: 'Carlos Santos', salaryBase: 0, role: 'Técnico de Rede', category: 'Rede' },
+  { id: 't4', name: 'Ana Costa', salaryBase: 0, role: 'Instaladora Campo', category: 'Campo' },
 ];
 
 const INITIAL_TEAMS: Team[] = [
-  { id: 'team1', name: 'Equipe Um', leaderId: 't3', memberIds: ['t1', 't2', 't3'] },
+  { id: 'team1', name: 'Equipe Rede 01', leaderId: 't3', memberIds: ['t1', 't3'] },
 ];
 
 const INITIAL_ORDERS: ServiceOrder[] = [
@@ -41,6 +41,7 @@ export default function App() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [monthlySla, setMonthlySla] = useState<Record<string, Record<string, number>>>({});
+  const [monthlyConformity, setMonthlyConformity] = useState<Record<string, Record<string, number>>>({});
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
@@ -94,15 +95,22 @@ export default function App() {
       const { data: teamData, error: teamError } = await supabase.from('teams').select('*');
       const { data: orderData, error: orderError } = await supabase.from('service_orders').select('*');
       const { data: slaData, error: slaError } = await supabase.from('monthly_sla').select('*');
+      const { data: confData, error: confError } = await supabase.from('monthly_conformity').select('*');
 
-      if (techError || teamError || orderError || slaError) {
-        console.error('Supabase fetch error:', { techError, teamError, orderError, slaError });
-        if (techError?.message.includes('relation "technicians" does not exist')) {
-          setDbError('As tabelas do banco de dados não foram criadas no Supabase. Por favor, execute o script SQL de configuração.');
+      if (techError || teamError || orderError || slaError || confError) {
+        console.warn('Supabase partial/total fetch failure. Falling back to local/cached data.');
+        const mainError = techError || teamError || orderError || slaError || confError;
+        
+        if (mainError?.message.includes('relation "technicians" does not exist') || 
+            mainError?.message.includes('relation "app_users" does not exist')) {
+          setDbError('Banco de dados não configurado. Por favor, use o botão "Configurar Banco" na aba Técnicos.');
         } else {
-          setDbError(`Erro ao conectar ao Supabase: ${techError?.message || 'Erro desconhecido'}`);
+          setDbError(`Supabase: ${mainError?.message || 'Erro de conexão'}`);
         }
-        throw new Error('Supabase fetch failed');
+        
+        setIsOnline(false);
+        loadFallbackData();
+        return;
       }
 
       // 2. Use Supabase data (even if some tables are empty)
@@ -117,6 +125,15 @@ export default function App() {
         slaObj[item.month][item.tech_id] = item.value;
       });
       setMonthlySla(slaObj);
+
+      // Reconstruct Conformity object
+      const confObj: Record<string, Record<string, number>> = {};
+      confData?.forEach(item => {
+        if (!confObj[item.month]) confObj[item.month] = {};
+        confObj[item.month][item.tech_id] = item.value;
+      });
+      setMonthlyConformity(confObj);
+
       setIsOnline(true);
       setDbError(null);
 
@@ -186,8 +203,9 @@ export default function App() {
         await supabase.from('technicians').upsert(techs.map(t => ({
           id: t.id,
           name: t.name,
-          salaryBase: t.salaryBase,
-          role: t.role
+          role: t.role,
+          category: t.category,
+          fixedCommission: t.fixedCommission
         })));
       }
 
@@ -226,6 +244,17 @@ export default function App() {
       });
       if (slaEntries.length > 0) {
         await supabase.from('monthly_sla').upsert(slaEntries);
+      }
+
+      // Insert Conformity
+      const confEntries: any[] = [];
+      Object.entries(monthlyConformity).forEach(([month, techs]: [string, any]) => {
+        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+          confEntries.push({ month, tech_id: techId, value });
+        });
+      });
+      if (confEntries.length > 0) {
+        await supabase.from('monthly_conformity').upsert(confEntries);
       }
       
       setIsOnline(true);
@@ -313,12 +342,32 @@ export default function App() {
       })
       .subscribe((status) => console.log('Status Canal SLA:', status));
 
+    const conformityChannel = supabase
+      .channel('conformity-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_conformity' }, (payload) => {
+        console.log('Evento Conformity:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = payload.new;
+          setMonthlyConformity(prev => ({
+            ...prev,
+            [item.month]: {
+              ...(prev[item.month] || {}),
+              [item.tech_id]: item.value
+            }
+          }));
+        } else if (payload.eventType === 'DELETE') {
+          fetchData(false);
+        }
+      })
+      .subscribe((status) => console.log('Status Canal Conformidade:', status));
+
     return () => {
       console.log('Limpando canais Realtime...');
       supabase.removeChannel(techniciansChannel);
       supabase.removeChannel(teamsChannel);
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(slaChannel);
+      supabase.removeChannel(conformityChannel);
     };
   }, [isOnline, fetchData]);
 
@@ -329,8 +378,9 @@ export default function App() {
       localStorage.setItem('telecom_teams', JSON.stringify(teams));
       localStorage.setItem('telecom_orders', JSON.stringify(orders));
       localStorage.setItem('telecom_monthly_sla', JSON.stringify(monthlySla));
+      localStorage.setItem('telecom_monthly_conformity', JSON.stringify(monthlyConformity));
     }
-  }, [technicians, teams, orders, monthlySla, isLoading]);
+  }, [technicians, teams, orders, monthlySla, monthlyConformity, isLoading]);
 
   // Handlers with Supabase Sync
   const handleAddOrder = async (order: ServiceOrder) => {
@@ -412,14 +462,15 @@ export default function App() {
     saveLog({
       username: user?.username || 'Sistema',
       action: 'Técnico Adicionado',
-      details: `Nome: ${tech.name} | Cargo: ${tech.role}`,
+      details: `Nome: ${tech.name} | Categoria: ${tech.category}`,
       category: 'Técnico'
     });
     await supabase.from('technicians').insert([{
       id: tech.id,
       name: tech.name,
-      salaryBase: tech.salaryBase,
-      role: tech.role
+      role: tech.role,
+      category: tech.category,
+      fixedCommission: tech.fixedCommission
     }]);
   };
 
@@ -433,8 +484,9 @@ export default function App() {
     });
     await supabase.from('technicians').update({
       name: tech.name,
-      salaryBase: tech.salaryBase,
-      role: tech.role
+      role: tech.role,
+      category: tech.category,
+      fixedCommission: tech.fixedCommission
     }).eq('id', tech.id);
   };
 
@@ -515,6 +567,28 @@ export default function App() {
     }, { onConflict: 'month,tech_id' });
   };
 
+  const handleUpdateConformity = async (month: string, techId: string, value: number) => {
+    const techName = technicians.find(t => t.id === techId)?.name || techId;
+    setMonthlyConformity(prev => ({
+      ...prev,
+      [month]: {
+        ...(prev[month] || {}),
+        [techId]: value
+      }
+    }));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: 'Nota de Conformidade Atualizada',
+      details: `Técnico: ${techName} | Mês: ${month} | Nota: ${value}`,
+      category: 'Sistema'
+    });
+    await supabase.from('monthly_conformity').upsert({
+      month,
+      tech_id: techId,
+      value
+    }, { onConflict: 'month,tech_id' });
+  };
+
   const saveLog = async (log: Omit<SystemLog, 'id' | 'created_at'>) => {
     try {
       await supabase.from('system_logs').insert([log]);
@@ -558,6 +632,7 @@ export default function App() {
       });
       // Clear Supabase tables
       await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      await supabase.from('monthly_conformity').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
       await supabase.from('service_orders').delete().neq('protocol', ''); 
       await supabase.from('teams').delete().neq('id', ''); 
       await supabase.from('technicians').delete().neq('id', ''); 
@@ -805,6 +880,8 @@ export default function App() {
               orders={orders}
               monthlySla={monthlySla}
               onUpdateSla={handleUpdateSla}
+              monthlyConformity={monthlyConformity}
+              onUpdateConformity={handleUpdateConformity}
               currentMonth={format(new Date(), 'yyyy-MM')}
               userRole={user.role}
             />

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Technician, Team, ServiceOrder, CommissionResult, UserRole } from '@/src/types';
+import { Technician, Team, ServiceOrder, CommissionResult, UserRole, TechCategory } from '@/src/types';
 import { Calculator, TrendingUp, Award, AlertCircle, DollarSign, Info, User, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -15,28 +15,37 @@ interface CommissionsProps {
   orders: ServiceOrder[];
   monthlySla: Record<string, Record<string, number>>;
   onUpdateSla: (month: string, techId: string, value: number) => void;
+  monthlyConformity: Record<string, Record<string, number>>;
+  onUpdateConformity: (month: string, techId: string, value: number) => void;
   currentMonth: string; // yyyy-MM
   userRole?: UserRole;
 }
 
-export default function Commissions({ technicians, teams, orders, monthlySla, onUpdateSla, currentMonth, userRole }: CommissionsProps) {
+export default function Commissions({ 
+  technicians, teams, orders, 
+  monthlySla, onUpdateSla, 
+  monthlyConformity, onUpdateConformity,
+  currentMonth, userRole 
+}: CommissionsProps) {
   const isAdmin = userRole === 'admin';
   const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
 
   const commissionData = useMemo(() => {
     const results: CommissionResult[] = [];
     const monthSlas = monthlySla[currentMonth] || {};
+    const monthConfs = monthlyConformity[currentMonth] || {};
 
     technicians.forEach(tech => {
       // Find teams this tech belongs to
-      const techTeams = teams.filter(t => t.memberIds.includes(tech.id)).map(t => t.id);
+      const techTeamsDetailed = teams.filter(t => t.memberIds.includes(tech.id));
+      const techTeamsIds = techTeamsDetailed.map(t => t.id);
       
-      // Filter ALL orders for this tech/team (not just by openingDate)
+      // Filter ALL orders for this tech/team
       const techOrders = orders.filter(o => 
-        o.responsibleId === tech.id || techTeams.includes(o.responsibleId)
+        o.responsibleId === tech.id || techTeamsIds.includes(o.responsibleId)
       );
 
-      // Group by day to calculate daily productivity using Dashboard logic
+      // Group by day to calculate daily productivity
       const dailyStats: Record<string, { total: number, completed: number }> = {};
       
       techOrders.forEach(order => {
@@ -49,42 +58,27 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
           try {
             const date = parseISO(dateStr);
             if (isNaN(date.getTime())) return;
-            
-            // Only process dates within the current month
             if (format(date, 'yyyy-MM') === currentMonth) {
               if (!dailyStats[dateStr]) dailyStats[dateStr] = { total: 0, completed: 0 };
-              
               const isScheduledDay = dateStr === order.openingDate;
               const isClosingDay = dateStr === order.closingDate && order.status === 'Concluída';
               const isOriginalDay = dateStr === order.originalOpeningDate && dateStr !== order.openingDate;
-
-              // Only count in total if it's the day it was supposed to happen (and not moved without delay)
-              // or the day it was actually closed.
               if (isScheduledDay || isClosingDay || (isOriginalDay && order.isDelayed)) {
                 dailyStats[dateStr].total++;
               }
-              
-              // It counts as completed on this day ONLY if it was closed on this specific day
-              if (isClosingDay) {
-                dailyStats[dateStr].completed++;
-              }
+              if (isClosingDay) dailyStats[dateStr].completed++;
             }
-          } catch (e) {
-            // Skip invalid dates
-          }
+          } catch (e) {}
         });
       });
 
       const daysWorkedList = Object.keys(dailyStats).sort();
       let totalDailyPercentage = 0;
-
       daysWorkedList.forEach(day => {
         const { total, completed } = dailyStats[day];
-        const dayPercentage = total > 0 ? (completed / total) * 100 : 0;
-        totalDailyPercentage += dayPercentage;
+        totalDailyPercentage += total > 0 ? (completed / total) * 100 : 0;
       });
 
-      // Unique orders for the month (for display purposes)
       const monthOrders = techOrders.filter(o => {
         const opDate = parseISO(o.openingDate);
         const clDate = o.closingDate ? parseISO(o.closingDate) : null;
@@ -95,42 +89,112 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
       const closedOS = monthOrders.filter(o => o.status === 'Concluída' && o.closingDate && format(parseISO(o.closingDate), 'yyyy-MM') === currentMonth).length;
       const delayedOS = monthOrders.filter(o => o.isDelayed).length;
       const productivity = daysWorkedList.length > 0 ? totalDailyPercentage / daysWorkedList.length : 0;
-
-      let bonusPercentage = 0;
-      if (productivity >= 95) bonusPercentage = 50;
-      else if (productivity >= 85) bonusPercentage = 35;
-      else if (productivity >= 70) bonusPercentage = 20;
-
-      const bonusAmount = (tech.salaryBase * bonusPercentage) / 100;
       const sla = monthSlas[tech.id] ?? 100;
-      const finalCommission = bonusAmount * (sla / 100);
+      const conformity = monthConfs[tech.id] ?? 10;
+
+      // NEW CALCULATION LOGIC
+      if (tech.category === 'Manutenção') {
+        const fixed = tech.fixedCommission || 400;
+        results.push({
+          technicianId: tech.id,
+          technicianName: tech.name,
+          category: tech.category,
+          baseSalary: tech.salaryBase,
+          openOS,
+          closedOS,
+          delayedOS,
+          daysWorked: daysWorkedList.length,
+          productivity: 0,
+          sla: 0,
+          conformity: 0,
+          osBonus: fixed,
+          slaBonus: 0,
+          conformityBonus: 0,
+          weightedOS: fixed,
+          weightedSLA: 0,
+          weightedConformity: 0,
+          totalTeamCommission: fixed,
+          finalCommission: fixed
+        });
+        return;
+      }
+
+      const getTierValue = (val: number, type: 'OS' | 'SLA' | 'CONF', cat: TechCategory) => {
+        // Updated tiers based on category
+        const tiers = cat === 'Rede' ? [500, 1000, 1500] : [250, 450, 650];
+        
+        if (type === 'OS') {
+          if (val < 80) return 0;
+          if (val < 85) return tiers[0];
+          if (val < 95) return tiers[1];
+          return tiers[2];
+        }
+        if (type === 'SLA') {
+          if (val < 90) return 0;
+          if (val < 94) return tiers[0];
+          if (val < 98) return tiers[1];
+          return tiers[2];
+        }
+        if (type === 'CONF') {
+          if (val < 8) return 0;
+          if (val < 8.5) return tiers[0];
+          if (val < 9) return tiers[1];
+          return tiers[2];
+        }
+        return 0;
+      };
+
+      const osBonus = getTierValue(productivity, 'OS', tech.category);
+      const slaBonus = getTierValue(sla, 'SLA', tech.category);
+      const conformityBonus = getTierValue(conformity, 'CONF', tech.category);
+
+      const weightedOS = osBonus * 0.6;
+      const weightedSLA = slaBonus * 0.25;
+      const weightedConformity = conformityBonus * 0.15;
+      
+      const totalTeamCommission = weightedOS + weightedSLA + weightedConformity;
+      
+      // If in team, check if result is shared? 
+      // User says: "Essa seria a comissão da equipe, divide por dois e seria 475 reais para cada."
+      // We assume tech primarily works in their main team if assigned.
+      const currentTeam = techTeamsDetailed[0];
+      const divisor = currentTeam ? currentTeam.memberIds.length : 1;
+      const finalCommission = totalTeamCommission / divisor;
 
       results.push({
         technicianId: tech.id,
         technicianName: tech.name,
+        category: tech.category,
         baseSalary: tech.salaryBase,
         openOS,
         closedOS,
         delayedOS,
         daysWorked: daysWorkedList.length,
         productivity,
-        bonusPercentage,
-        bonusAmount,
         sla,
+        conformity,
+        osBonus,
+        slaBonus,
+        conformityBonus,
+        weightedOS,
+        weightedSLA,
+        weightedConformity,
+        totalTeamCommission,
         finalCommission
       });
     });
 
     return results;
-  }, [technicians, teams, orders, currentMonth, monthlySla]);
+  }, [technicians, teams, orders, currentMonth, monthlySla, monthlyConformity]);
 
   const totals = useMemo(() => {
+    const comDataForAvg = commissionData.filter(c => c.category !== 'Manutenção');
     return {
       totalCommission: commissionData.reduce((acc, curr) => acc + curr.finalCommission, 0),
-      avgProductivity: commissionData.length > 0 
-        ? commissionData.reduce((acc, curr) => acc + curr.productivity, 0) / commissionData.length 
+      avgProductivity: comDataForAvg.length > 0 
+        ? comDataForAvg.reduce((acc, curr) => acc + curr.productivity, 0) / comDataForAvg.length 
         : 0,
-      eligibleCount: commissionData.filter(c => c.bonusPercentage > 0).length
+      eligibleCount: commissionData.filter(c => c.finalCommission > 0).length
     };
   }, [commissionData]);
 
@@ -165,7 +229,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
           <CardContent>
             <div className="text-3xl font-bold flex items-center gap-2">
               <DollarSign className="w-8 h-8" />
-              R$ {totals.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {(totals.totalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -204,10 +268,11 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead>Técnico (Clique para Detalhes)</TableHead>
-                  <TableHead className="text-center">Produtividade</TableHead>
-                  <TableHead className="text-center">Bônus %</TableHead>
-                  <TableHead className="text-center">Atrasos</TableHead>
+                  <TableHead>Técnico</TableHead>
+                  <TableHead className="text-center">Categoria</TableHead>
+                  <TableHead className="text-center">Produtividade (60%)</TableHead>
+                  <TableHead className="text-center">SLA (25%)</TableHead>
+                  <TableHead className="text-center">Conf (15%)</TableHead>
                   <TableHead className="text-right">Comissão Final</TableHead>
                 </TableRow>
               </TableHeader>
@@ -228,26 +293,46 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                       </button>
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className={getProductivityColor(data.productivity)}>
-                        {data.productivity.toFixed(1)}%
-                      </div>
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase">{data.category}</Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      {data.bonusPercentage > 0 ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                          +{data.bonusPercentage}%
-                        </Badge>
+                      {data.category === 'Manutenção' ? (
+                        <div className="text-xs font-bold text-slate-400">-</div>
                       ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
+                        <>
+                          <div className={`text-xs font-bold ${getProductivityColor(data.productivity)}`}>
+                            {data.productivity.toFixed(1)}%
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">R$ {data.osBonus}</div>
+                        </>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className={`font-bold ${data.delayedOS > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                        {data.delayedOS}
-                      </span>
+                      {data.category === 'Manutenção' ? (
+                        <div className="text-xs font-bold text-slate-400">-</div>
+                      ) : (
+                        <>
+                          <div className="text-xs font-bold text-amber-600">
+                            {data.sla.toFixed(1)}%
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">R$ {data.slaBonus}</div>
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {data.category === 'Manutenção' ? (
+                        <div className="text-xs font-bold text-slate-400">-</div>
+                      ) : (
+                        <>
+                          <div className="text-xs font-bold text-blue-600">
+                            {data.conformity.toFixed(1)}
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">R$ {data.conformityBonus}</div>
+                        </>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-bold text-purple-700">
-                      R$ {data.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(data.finalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -281,15 +366,13 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                 {/* Top Stats Cards */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Salário Base</p>
-                    <p className="text-lg font-bold text-slate-700">
-                      R$ {selectedData.baseSalary.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Categoria</p>
+                    <Badge variant="outline" className="text-xs font-bold uppercase py-0">{(selectedData?.category || 'N/A')}</Badge>
                   </div>
                   <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Produtividade</p>
-                    <p className={`text-lg font-black ${getProductivityColor(selectedData.productivity)}`}>
-                      {selectedData.productivity.toFixed(1)}%
+                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Produtividade OS</p>
+                    <p className={`text-lg font-black ${selectedData?.category === 'Manutenção' ? 'text-slate-400' : getProductivityColor(selectedData?.productivity || 0)}`}>
+                      {selectedData?.category === 'Manutenção' ? '-' : `${(selectedData?.productivity || 0).toFixed(1)}%`}
                     </p>
                   </div>
                 </div>
@@ -298,51 +381,87 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Calculator className="w-4 h-4 text-purple-500" />
-                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Memória de Cálculo</h4>
+                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Memória de Cálculo (Pesos)</h4>
                   </div>
                   
                   <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">Total de O.S. no Mês:</span>
-                      <span className="font-bold text-slate-700">{selectedData.openOS}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">O.S. Concluídas:</span>
-                      <span className="font-bold text-slate-700">{selectedData.closedOS}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">O.S. em Atraso:</span>
-                      <span className="font-bold text-rose-600">{selectedData.delayedOS}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">Dias com O.S. Abertas:</span>
-                      <span className="font-bold text-slate-700">{selectedData.daysWorked}</span>
-                    </div>
-                    
-                    <div className="pt-2 flex justify-between items-center">
-                      <span className="text-muted-foreground">Bônus por Produtividade ({selectedData.bonusPercentage}%):</span>
-                      <span className="font-black text-emerald-600">
-                        + R$ {selectedData.bonusAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
+                    {selectedData?.category !== 'Manutenção' ? (
+                      <>
+                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-600">O.S. (Peso 60%)</span>
+                            <span className="text-muted-foreground">Range {(selectedData?.productivity || 0).toFixed(1)}% -&gt; R$ {selectedData?.osBonus || 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center font-black">
+                            <span>Crédito OS:</span>
+                            <span className="text-purple-600">R$ {(selectedData?.weightedOS || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
 
-                    <div className="flex justify-between items-center gap-4">
-                      <Label className="text-muted-foreground text-sm font-normal">Redutor de SLA (%):</Label>
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          max="100"
-                          value={monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100}
-                          onChange={(e) => onUpdateSla(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
-                          className="h-8 w-20 text-center text-sm font-bold border-amber-200 focus-visible:ring-amber-500"
-                          disabled={!isAdmin}
-                        />
-                        <span className="text-xs font-bold text-amber-600">
-                          x {((monthlySla[currentMonth]?.[selectedData.technicianId] ?? 100) / 100).toFixed(2)}
-                        </span>
+                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                          <div className="flex justify-between items-center gap-4">
+                            <Label className="text-xs font-bold text-slate-600">SLA (Peso 25%)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="100"
+                                value={monthlySla[currentMonth]?.[selectedData?.technicianId || ''] ?? 100}
+                                onChange={(e) => selectedData && onUpdateSla(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
+                                className="h-7 w-16 text-center text-xs font-bold border-amber-200"
+                                disabled={!isAdmin}
+                              />
+                              <span className="text-[10px] font-bold text-amber-600">%</span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                            <span>Range {(selectedData?.sla || 0).toFixed(0)}% -&gt; R$ {selectedData?.slaBonus || 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center font-black">
+                            <span>Crédito SLA:</span>
+                            <span className="text-amber-600">R$ {(selectedData?.weightedSLA || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                          <div className="flex justify-between items-center gap-4">
+                            <Label className="text-xs font-bold text-slate-600">CONFORMIDADE (Peso 15%)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="10"
+                                step="0.1"
+                                value={monthlyConformity[currentMonth]?.[selectedData?.technicianId || ''] ?? 10}
+                                onChange={(e) => selectedData && onUpdateConformity(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
+                                className="h-7 w-16 text-center text-xs font-bold border-blue-200"
+                                disabled={!isAdmin}
+                              />
+                              <span className="text-[10px] font-bold text-blue-600">Nota</span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                            <span>Range {(selectedData?.conformity || 0).toFixed(1)} -&gt; R$ {selectedData?.conformityBonus || 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center font-black">
+                            <span>Crédito Conf:</span>
+                            <span className="text-blue-600">R$ {(selectedData?.weightedConformity || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="py-2 flex justify-between items-center border-t border-dashed">
+                          <span className="text-xs font-bold text-slate-500 uppercase">Potencial da Equipe:</span>
+                          <span className="font-black text-slate-700">R$ {(selectedData?.totalTeamCommission || 0).toFixed(2)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl space-y-2">
+                         <div className="flex justify-between items-center font-black">
+                          <span className="text-purple-700">Comissão Fixa (Manutenção):</span>
+                          <span className="text-purple-700 text-lg">R$ {(selectedData?.finalCommission || 0).toFixed(2)}</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Final Result Box */}
@@ -353,7 +472,7 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
                     <div className="relative z-10 flex justify-between items-center">
                       <span className="text-sm opacity-90 font-black uppercase tracking-widest">Comissão Líquida</span>
                       <span className="text-3xl font-black tracking-tighter">
-                        R$ {selectedData.finalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(selectedData?.finalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -370,33 +489,6 @@ export default function Commissions({ technicians, teams, orders, monthlySla, on
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 gap-6">
-        <Card className="border-dashed max-w-md">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" /> Regras de Produtividade
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs space-y-2 text-muted-foreground">
-            <div className="flex justify-between">
-              <span>95% a 100%</span>
-              <span className="font-bold text-emerald-600">50% do Salário</span>
-            </div>
-            <div className="flex justify-between">
-              <span>85% a 94.9%</span>
-              <span className="font-bold text-purple-600">35% do Salário</span>
-            </div>
-            <div className="flex justify-between">
-              <span>70% a 84.9%</span>
-              <span className="font-bold text-amber-600">20% do Salário</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Abaixo de 70%</span>
-              <span className="font-bold text-rose-600">0% (Sem Bônus)</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

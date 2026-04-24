@@ -1,10 +1,13 @@
 export type Status = 'Aberta' | 'Em Execução' | 'Concluída' | 'Cancelada';
+export type TechCategory = 'Rede' | 'Campo' | 'Manutenção';
 
 export interface Technician {
   id: string;
   name: string;
   salaryBase: number;
   role: string;
+  category: TechCategory;
+  fixedCommission?: number; // Only for Manutenção category
   teamId?: string;
 }
 
@@ -31,16 +34,24 @@ export interface ServiceOrder {
 export interface CommissionResult {
   technicianId: string;
   technicianName: string;
+  category: TechCategory;
   baseSalary: number;
   openOS: number;
   closedOS: number;
   delayedOS: number;
   daysWorked: number;
   productivity: number;
-  bonusPercentage: number;
-  bonusAmount: number;
   sla: number;
-  finalCommission: number;
+  conformity: number;
+  // Computed values
+  osBonus: number; // The tier value (e.g., 1000)
+  slaBonus: number; // The tier value (e.g., 500)
+  conformityBonus: number; // The tier value (e.g., 1500)
+  weightedOS: number; // osBonus * 0.6
+  weightedSLA: number; // slaBonus * 0.25
+  weightedConformity: number; // conformityBonus * 0.15
+  totalTeamCommission: number; // Sum of weighted values
+  finalCommission: number; // totalTeamCommission / members (if applicable)
 }
 
 export type UserRole = 'admin' | 'operator' | 'viewer';

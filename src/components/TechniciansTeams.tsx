@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Technician, Team, ServiceOrder, UserRole } from '@/src/types';
 import { Users, UserPlus, User, Trash2, Shield, History, Plus, CheckCircle2, ListFilter, Calendar, RefreshCcw, AlertCircle, Pencil } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
+import { TechCategory } from '@/src/types';
 
 interface TechniciansTeamsProps {
   technicians: Technician[];
@@ -46,8 +47,9 @@ export default function TechniciansTeams({
 
   // Tech Form State
   const [techName, setTechName] = useState('');
-  const [techSalary, setTechSalary] = useState('');
   const [techRole, setTechRole] = useState('Técnico de Campo');
+  const [techCategory, setTechCategory] = useState<TechCategory>('Rede');
+  const [techFixedCommission, setTechFixedCommission] = useState('400');
 
   // Team Form State
   const [teamName, setTeamName] = useState('');
@@ -59,19 +61,23 @@ export default function TechniciansTeams({
       onUpdateTechnician({
         ...editingTechnician,
         name: techName,
-        salaryBase: parseFloat(techSalary),
-        role: techRole
+        salaryBase: 0,
+        role: techRole,
+        category: techCategory,
+        fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
       });
     } else {
       onAddTechnician({
         id: crypto.randomUUID(),
         name: techName,
-        salaryBase: parseFloat(techSalary),
-        role: techRole
+        salaryBase: 0,
+        role: techRole,
+        category: techCategory,
+        fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
       });
     }
     setTechName('');
-    setTechSalary('');
+    setTechFixedCommission('400');
     setEditingTechnician(null);
     setIsTechDialogOpen(false);
   };
@@ -79,8 +85,9 @@ export default function TechniciansTeams({
   const handleEditTech = (tech: Technician) => {
     setEditingTechnician(tech);
     setTechName(tech.name);
-    setTechSalary(tech.salaryBase.toString());
     setTechRole(tech.role);
+    setTechCategory(tech.category);
+    setTechFixedCommission(tech.fixedCommission?.toString() || '400');
     setIsTechDialogOpen(true);
   };
 
@@ -183,8 +190,9 @@ CREATE TABLE IF NOT EXISTS app_users (
 CREATE TABLE IF NOT EXISTS technicians (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  "salaryBase" NUMERIC NOT NULL,
   role TEXT NOT NULL,
+  category TEXT DEFAULT 'Rede',
+  "fixedCommission" NUMERIC DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -192,7 +200,7 @@ CREATE TABLE IF NOT EXISTS technicians (
 CREATE TABLE IF NOT EXISTS teams (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  "leaderId" TEXT REFERENCES technicians(id),
+  "leaderId" TEXT,
   "memberIds" TEXT[] NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -214,6 +222,15 @@ CREATE TABLE IF NOT EXISTS service_orders (
 
 -- 5. Tabela de SLA Mensal
 CREATE TABLE IF NOT EXISTS monthly_sla (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  month TEXT NOT NULL,
+  tech_id TEXT NOT NULL,
+  value NUMERIC NOT NULL,
+  UNIQUE(month, tech_id)
+);
+
+-- 6. Tabela de Conformidade Mensal
+CREATE TABLE IF NOT EXISTS monthly_conformity (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   month TEXT NOT NULL,
   tech_id TEXT NOT NULL,
@@ -250,6 +267,7 @@ BEGIN;
     teams, 
     service_orders, 
     monthly_sla, 
+    monthly_conformity,
     app_users, 
     system_backups,
     system_logs;
@@ -261,8 +279,10 @@ ALTER TABLE technicians DISABLE ROW LEVEL SECURITY;
 ALTER TABLE teams DISABLE ROW LEVEL SECURITY;
 ALTER TABLE service_orders DISABLE ROW LEVEL SECURITY;
 ALTER TABLE monthly_sla DISABLE ROW LEVEL SECURITY;
+ALTER TABLE monthly_conformity DISABLE ROW LEVEL SECURITY;
 ALTER TABLE app_users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE system_backups DISABLE ROW LEVEL SECURITY;
+ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
                         `}</pre>
                       </div>
@@ -278,7 +298,6 @@ ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
                 if (!open) {
                   setEditingTechnician(null);
                   setTechName('');
-                  setTechSalary('');
                 }
               }}>
                 <DialogTrigger render={<Button variant="outline" />}>
@@ -288,29 +307,34 @@ ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
                   <DialogHeader>
                     <DialogTitle>{editingTechnician ? 'Editar Técnico' : 'Cadastrar Novo Técnico'}</DialogTitle>
                   </DialogHeader>
-                  <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                     <div className="grid gap-2">
                       <Label>Nome Completo</Label>
                       <Input value={techName} onChange={(e) => setTechName(e.target.value)} placeholder="Ex: João Silva" />
                     </div>
-                    <div className="grid gap-2">
-                      <Label>Salário Base (R$)</Label>
-                      <Input type="number" value={techSalary} onChange={(e) => setTechSalary(e.target.value)} placeholder="1850.00" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Cargo / Função</Label>
-                      <Select value={techRole} onValueChange={setTechRole}>
+                    <div className="grid gap-2 text-left">
+                      <Label>Categoria</Label>
+                      <Select value={techCategory} onValueChange={(v: TechCategory) => setTechCategory(v)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Técnico de Campo">Técnico de Campo</SelectItem>
-                          <SelectItem value="Instalador">Instalador</SelectItem>
-                          <SelectItem value="Reparador">Reparador</SelectItem>
-                          <SelectItem value="Líder Técnico">Líder Técnico</SelectItem>
+                          <SelectItem value="Rede">Técnico de Rede</SelectItem>
+                          <SelectItem value="Campo">Técnico de Campo</SelectItem>
+                          <SelectItem value="Manutenção">Manutenção</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid gap-2 text-left">
+                      <Label>Cargo / Função</Label>
+                      <Input value={techRole} onChange={(e) => setTechRole(e.target.value)} placeholder="Ex: Reparador" />
+                    </div>
+                    {techCategory === 'Manutenção' && (
+                      <div className="grid gap-2 md:col-span-2 text-left">
+                        <Label>Comissão Fixa (R$)</Label>
+                        <Input type="number" value={techFixedCommission} onChange={(e) => setTechFixedCommission(e.target.value)} placeholder="400.00" />
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
                     <Button onClick={handleAddTech} className="bg-purple-600 hover:bg-purple-700">
@@ -394,7 +418,6 @@ ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Salário</TableHead>
                   <TableHead className="text-center">O.S. Hoje</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -404,9 +427,11 @@ ALTER TABLE system_logs DISABLE ROW LEVEL SECURITY;
                   <TableRow key={tech.id}>
                     <TableCell>
                       <div className="font-medium">{tech.name}</div>
-                      <div className="text-xs text-muted-foreground">{tech.role}</div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] uppercase font-bold py-0">{tech.category}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{tech.role}</span>
+                      </div>
                     </TableCell>
-                    <TableCell>R$ {tech.salaryBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-center">
                       <Button 
                         variant="ghost" 
