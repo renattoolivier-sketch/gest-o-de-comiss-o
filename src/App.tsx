@@ -56,13 +56,85 @@ export default function App() {
     }
   });
 
+  // Shared Migration Function
+  const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any, conformity: any = {}) => {
+    try {
+      console.log('Iniciando migração para Supabase...', { techs: techs.length, teams: teams.length, orders: orders.length });
+      
+      if (techs.length > 0) {
+        const { error } = await supabase.from('technicians').upsert(techs.map(t => ({
+          id: t.id,
+          name: t.name,
+          role: t.role,
+          category: t.category,
+          fixedCommission: Number(t.fixedCommission) || 0
+        })));
+        if (error) throw new Error(`Técnicos: ${error.message}`);
+      }
+
+      if (teams.length > 0) {
+        const { error } = await supabase.from('teams').upsert(teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          leaderId: t.leaderId,
+          memberIds: t.memberIds
+        })));
+        if (error) throw new Error(`Equipes: ${error.message}`);
+      }
+
+      if (orders.length > 0) {
+        const { error } = await supabase.from('service_orders').upsert(orders.map(o => ({
+          protocol: o.protocol,
+          responsibleId: o.responsibleId,
+          isTeam: o.isTeam,
+          openingDate: o.openingDate,
+          originalOpeningDate: o.originalOpeningDate,
+          isDelayed: o.isDelayed,
+          closingDate: o.closingDate,
+          status: o.status,
+          description: o.description,
+          observation: o.observation
+        })));
+        if (error) throw new Error(`Ordens: ${error.message}`);
+      }
+      
+      const slaEntries: any[] = [];
+      Object.entries(sla).forEach(([month, techs]: [string, any]) => {
+        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+          slaEntries.push({ month, tech_id: techId, value });
+        });
+      });
+      if (slaEntries.length > 0) {
+        const { error } = await supabase.from('monthly_sla').upsert(slaEntries);
+        if (error) throw new Error(`SLA: ${error.message}`);
+      }
+
+      const confEntries: any[] = [];
+      Object.entries(conformity).forEach(([month, techs]: [string, any]) => {
+        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+          confEntries.push({ month, tech_id: techId, value });
+        });
+      });
+      if (confEntries.length > 0) {
+        const { error } = await supabase.from('monthly_conformity').upsert(confEntries);
+        if (error) throw new Error(`Conformidade: ${error.message}`);
+      }
+      
+      setIsOnline(true);
+      return { success: true };
+    } catch (e: any) {
+      console.error('Erro na migração:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
   // Load initial data from Supabase or LocalStorage
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
       // Check if Supabase is configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        setDbError('Configuração do Supabase ausente. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+        setDbError('Configuração do Supabase ausente.');
         setIsOnline(false);
         loadFallbackData();
         if (showLoading) setIsLoading(false);
@@ -78,23 +150,20 @@ export default function App() {
           .maybeSingle();
 
         if (!adminExists && !adminError) {
-          await supabase.from('app_users').insert([
-            {
-              username: 'renato',
-              password: 'Rog@32604509',
-              role: 'admin'
-            }
-          ]);
+          await supabase.from('app_users').insert([{
+            username: 'renato',
+            password: 'Rog@32604509',
+            role: 'admin'
+          }]);
         }
       } catch (e) {
-        console.error('Error checking/creating master admin:', e);
+        console.error('Error checking admin:', e);
       }
 
-      // 1. Try to fetch from Supabase
       const results = await Promise.allSettled([
         supabase.from('technicians').select('*'),
         supabase.from('teams').select('*'),
-        supabase.from('service_orders').select('*'),
+        supabase.from('service_orders').select('*').order('openingDate', { ascending: false }),
         supabase.from('monthly_sla').select('*'),
         supabase.from('monthly_conformity').select('*')
       ]);
@@ -105,25 +174,10 @@ export default function App() {
       if (techRes.status === 'fulfilled' && techRes.value.error) fetchErrors.push(techRes.value.error.message);
       if (teamRes.status === 'fulfilled' && teamRes.value.error) fetchErrors.push(teamRes.value.error.message);
       if (orderRes.status === 'fulfilled' && orderRes.value.error) fetchErrors.push(orderRes.value.error.message);
-      if (slaRes.status === 'fulfilled' && slaRes.value.error) fetchErrors.push(slaRes.value.error.message);
-      if (confRes.status === 'fulfilled' && confRes.value.error) fetchErrors.push(confRes.value.error.message);
 
       if (fetchErrors.length > 0) {
         console.warn('Supabase fetch failure details:', fetchErrors);
-        const mainError = fetchErrors[0];
-        
-        if (mainError.includes('relation') && mainError.includes('does not exist')) {
-          setDbError(`Tabela ausente: ${mainError.split('"')[1] || mainError}`);
-        } else {
-          setDbError(`Supabase: ${mainError}`);
-        }
-        
-        // Only fallback to local if essential tables fail
-        if (techRes.status === 'fulfilled' && techRes.value.error?.message.includes('relation "technicians" does not exist')) {
-          setIsOnline(false);
-          loadFallbackData();
-          return;
-        }
+        setDbError(`Erro: ${fetchErrors[0]}`);
       }
 
       const techData = techRes.status === 'fulfilled' && !techRes.value.error 
@@ -131,8 +185,8 @@ export default function App() {
             id: t.id,
             name: t.name,
             role: t.role,
-            category: t.category,
-            fixedCommission: t.fixedCommission !== undefined ? t.fixedCommission : (t.fixed_commission !== undefined ? t.fixed_commission : t.fixedcommission)
+            category: t.category || 'Rede',
+            fixedCommission: Number(t.fixedCommission !== undefined ? t.fixedCommission : (t.fixed_commission !== undefined ? t.fixed_commission : (t.fixedcommission || 0)))
           })) 
         : [];
 
@@ -141,7 +195,7 @@ export default function App() {
             id: t.id,
             name: t.name,
             leaderId: t.leaderId || t.leader_id || t.leaderid,
-            memberIds: t.memberIds || t.member_ids || t.memberids
+            memberIds: t.memberIds || t.member_ids || t.memberids || []
           })) 
         : [];
 
@@ -149,10 +203,10 @@ export default function App() {
         ? orderRes.value.data.map((o: any) => ({
             protocol: o.protocol,
             responsibleId: o.responsibleId || o.responsible_id || o.responsibleid,
-            isTeam: o.isTeam !== undefined ? o.isTeam : (o.is_team !== undefined ? o.is_team : o.isteam),
+            isTeam: o.isTeam !== undefined ? o.isTeam : (o.is_team !== undefined ? o.is_team : (o.isteam || false)),
             openingDate: o.openingDate || o.opening_date || o.openingdate,
             originalOpeningDate: o.originalOpeningDate || o.original_opening_date || o.originalopeningdate,
-            isDelayed: o.isDelayed !== undefined ? o.isDelayed : (o.is_delayed !== undefined ? o.is_delayed : o.isdelayed),
+            isDelayed: o.isDelayed !== undefined ? o.isDelayed : (o.is_delayed !== undefined ? o.is_delayed : (o.isdelayed || false)),
             closingDate: o.closingDate || o.closing_date || o.closingdate,
             status: o.status,
             description: o.description,
@@ -196,12 +250,14 @@ export default function App() {
             const initialTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
             const initialOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
             const initialSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
+            const initialConf = JSON.parse(localStorage.getItem('telecom_monthly_conformity') || '{}');
             
             setTechnicians(initialTechs);
             setTeams(initialTeams);
             setOrders(initialOrders);
             setMonthlySla(initialSla);
-            await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla);
+            setMonthlyConformity(initialConf);
+            await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla, initialConf);
           } catch (e) {
             console.error('Error migrating local data:', e);
           }
@@ -251,74 +307,6 @@ export default function App() {
     }
   };
 
-  const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any) => {
-    try {
-      // Insert technicians
-      if (techs.length > 0) {
-        await supabase.from('technicians').upsert(techs.map(t => ({
-          id: t.id,
-          name: t.name,
-          role: t.role,
-          category: t.category,
-          fixedCommission: t.fixedCommission || 0
-        })));
-      }
-
-      // Insert teams
-      if (teams.length > 0) {
-        await supabase.from('teams').upsert(teams.map(t => ({
-          id: t.id,
-          name: t.name,
-          leaderId: t.leaderId,
-          memberIds: t.memberIds
-        })));
-      }
-
-      // Insert orders
-      if (orders.length > 0) {
-        await supabase.from('service_orders').upsert(orders.map(o => ({
-          protocol: o.protocol,
-          responsibleId: o.responsibleId,
-          isTeam: o.isTeam,
-          openingDate: o.openingDate,
-          originalOpeningDate: o.originalOpeningDate,
-          isDelayed: o.isDelayed,
-          closingDate: o.closingDate,
-          status: o.status,
-          description: o.description,
-          observation: o.observation
-        })));
-      }
-
-      // Insert SLA
-      const slaEntries: any[] = [];
-      Object.entries(sla).forEach(([month, techs]: [string, any]) => {
-        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
-          slaEntries.push({ month, tech_id: techId, value });
-        });
-      });
-      if (slaEntries.length > 0) {
-        await supabase.from('monthly_sla').upsert(slaEntries);
-      }
-
-      // Insert Conformity
-      const confEntries: any[] = [];
-      Object.entries(monthlyConformity).forEach(([month, techs]: [string, any]) => {
-        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
-          confEntries.push({ month, tech_id: techId, value });
-        });
-      });
-      if (confEntries.length > 0) {
-        await supabase.from('monthly_conformity').upsert(confEntries);
-      }
-      
-      setIsOnline(true);
-    } catch (error) {
-      console.error('Migration to Supabase failed:', error);
-      setIsOnline(false);
-    }
-  };
-
   // Real-time synchronization
   useEffect(() => {
     if (!isOnline) return;
@@ -334,8 +322,8 @@ export default function App() {
           id: newData.id,
           name: newData.name,
           role: newData.role,
-          category: newData.category,
-          fixedCommission: newData.fixedCommission !== undefined ? newData.fixedCommission : (newData.fixed_commission !== undefined ? newData.fixed_commission : newData.fixedcommission)
+          category: newData.category || 'Rede',
+          fixedCommission: Number(newData.fixedCommission !== undefined ? newData.fixedCommission : (newData.fixed_commission !== undefined ? newData.fixed_commission : (newData.fixedcommission || 0)))
         } as Technician : null;
 
         if (payload.eventType === 'INSERT' && mapped) {
@@ -543,14 +531,19 @@ export default function App() {
       details: `Nome: ${tech.name} | Categoria: ${tech.category}`,
       category: 'Técnico'
     });
-    const { error } = await supabase.from('technicians').insert([{
+    const payload = {
       id: tech.id,
       name: tech.name,
       role: tech.role,
       category: tech.category,
-      fixedCommission: tech.fixedCommission || 0
-    }]);
-    if (error) alert(`Erro Supabase: ${error.message}`);
+      fixedCommission: Number(tech.fixedCommission) || 0
+    };
+    
+    const { error } = await supabase.from('technicians').insert([payload]);
+    if (error) {
+      console.error('Erro ao adicionar técnico:', error);
+      alert(`Erro Supabase (Técnicos): ${error.message}`);
+    }
   };
 
   const handleUpdateTech = async (tech: Technician) => {
@@ -561,13 +554,18 @@ export default function App() {
       details: `Nome: ${tech.name} | Função: ${tech.role}`,
       category: 'Técnico'
     });
-    const { error } = await supabase.from('technicians').update({
+    const payload = {
       name: tech.name,
       role: tech.role,
       category: tech.category,
-      fixedCommission: tech.fixedCommission || 0
-    }).eq('id', tech.id);
-    if (error) alert(`Erro Supabase: ${error.message}`);
+      fixedCommission: Number(tech.fixedCommission) || 0
+    };
+    
+    const { error } = await supabase.from('technicians').update(payload).eq('id', tech.id);
+    if (error) {
+      console.error('Erro ao editar técnico:', error);
+      alert(`Erro Supabase (Técnicos): ${error.message}`);
+    }
   };
 
   const handleDeleteTech = async (id: string) => {
@@ -827,17 +825,35 @@ export default function App() {
   const onForceSync = async () => {
     setIsLoading(true);
     try {
-      const savedTechs = JSON.parse(localStorage.getItem('telecom_techs') || '[]');
-      const savedTeams = JSON.parse(localStorage.getItem('telecom_teams') || '[]');
-      const savedOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
-      const savedSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
+      const savedTechsStr = localStorage.getItem('telecom_techs');
+      const savedTeamsStr = localStorage.getItem('telecom_teams');
+      const savedOrdersStr = localStorage.getItem('telecom_orders');
+      const savedSlaStr = localStorage.getItem('telecom_monthly_sla');
+      const savedConfStr = localStorage.getItem('telecom_monthly_conformity');
+
+      if (!savedTechsStr && !savedTeamsStr && !savedOrdersStr) {
+        alert('Não há dados locais para sincronizar.');
+        setIsLoading(false);
+        return;
+      }
+
+      const savedTechs = JSON.parse(savedTechsStr || '[]');
+      const savedTeams = JSON.parse(savedTeamsStr || '[]');
+      const savedOrders = JSON.parse(savedOrdersStr || '[]');
+      const savedSla = JSON.parse(savedSlaStr || '{}');
+      const savedConf = JSON.parse(savedConfStr || '{}');
       
-      await migrateToSupabase(savedTechs, savedTeams, savedOrders, savedSla);
-      alert('Sincronização concluída com sucesso!');
-      await fetchData(true);
-    } catch (e) {
+      const result = await migrateToSupabase(savedTechs, savedTeams, savedOrders, savedSla, savedConf);
+      
+      if (result.success) {
+        alert('Sincronização concluída com sucesso!');
+        await fetchData(true);
+      } else {
+        alert(`Erro na sincronização: ${result.error}\n\nCertifique-se de que as tabelas existem no Supabase (clique em 'Configurar Banco').`);
+      }
+    } catch (e: any) {
       console.error('Forced sync failed:', e);
-      alert('Erro na sincronização forçada.');
+      alert(`Erro inesperado na sincronização: ${e.message}`);
     } finally {
       setIsLoading(false);
     }

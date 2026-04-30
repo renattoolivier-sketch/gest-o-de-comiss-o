@@ -64,7 +64,7 @@ export default function TechniciansTeams({
         name: techName,
         role: techRole,
         category: techCategory,
-        fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
+        fixedCommission: techCategory === 'Manutenção' ? (parseFloat(techFixedCommission) || 0) : undefined
       });
     } else {
       onAddTechnician({
@@ -72,7 +72,7 @@ export default function TechniciansTeams({
         name: techName,
         role: techRole,
         category: techCategory,
-        fixedCommission: techCategory === 'Manutenção' ? parseFloat(techFixedCommission) : undefined
+        fixedCommission: techCategory === 'Manutenção' ? (parseFloat(techFixedCommission) || 0) : undefined
       });
     }
     setTechName('');
@@ -285,10 +285,21 @@ ALTER TABLE public.monthly_sla REPLICA IDENTITY FULL;
 ALTER TABLE public.monthly_conformity REPLICA IDENTITY FULL;
 
 -- 11. HABILITAR PUBLICAÇÃO REALTIME
-BEGIN;
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR ALL TABLES;
-COMMIT;
+-- Nota: Se o Supabase reclamar que a publicação já existe como 'FOR ALL TABLES', ignore esta parte.
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime FOR ALL TABLES;
+  ELSE
+    -- Tenta adicionar as tabelas individualmente se não for 'FOR ALL TABLES'
+    -- Se for 'FOR ALL TABLES', o comando abaixo falhará mas o Realtime continuará funcionando.
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE technicians, teams, service_orders, monthly_sla, monthly_conformity;
+    EXCEPTION WHEN others THEN
+      RAISE NOTICE 'Publicação já configurada para TODAS as tabelas.';
+    END;
+  END IF;
+END $$;
 
 -- 12. PERMISSÕES PARA O USUÁRIO ANONIMO
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres;

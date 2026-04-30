@@ -91,12 +91,19 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   const handleSearchProtocol = () => {
     if (!searchQuery.trim()) return;
     
-    const found = orders.find(o => o.protocol.toLowerCase() === searchQuery.toLowerCase().trim());
+    const searchNormalized = searchQuery.trim().toLowerCase();
+    const found = orders.find(o => {
+      const protocolNormalized = String(o.protocol || '').trim().toLowerCase();
+      return protocolNormalized === searchNormalized;
+    });
+
     if (found) {
       setSearchedOrder(found);
       setIsSearchDialogOpen(true);
       setSearchQuery('');
     } else {
+      console.log('Busca falhou para:', searchNormalized);
+      console.log('Protocolos disponíveis:', orders.map(o => o.protocol));
       alert('Ordem de Serviço não encontrada.');
     }
   };
