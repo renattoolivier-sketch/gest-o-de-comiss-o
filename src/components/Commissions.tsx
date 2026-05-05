@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Technician, Team, ServiceOrder, CommissionResult, UserRole, TechCategory } from '@/src/types';
 import { Calculator, TrendingUp, Award, AlertCircle, DollarSign, Info, User, Search } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface CommissionsProps {
   technicians: Technician[];
@@ -21,19 +22,35 @@ interface CommissionsProps {
   userRole?: UserRole;
 }
 
+const getMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 3; i++) {
+    const d = subMonths(now, i);
+    options.push({
+      value: format(d, 'yyyy-MM'),
+      label: format(d, 'MMMM yyyy', { locale: ptBR })
+    });
+  }
+  return options;
+};
+
 export default function Commissions({ 
   technicians, teams, orders, 
   monthlySla, onUpdateSla, 
   monthlyConformity, onUpdateConformity,
-  currentMonth, userRole 
+  currentMonth: initialMonth, userRole 
 }: CommissionsProps) {
   const isAdmin = userRole === 'admin';
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
+
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const commissionData = useMemo(() => {
     const results: CommissionResult[] = [];
-    const monthSlas = monthlySla[currentMonth] || {};
-    const monthConfs = monthlyConformity[currentMonth] || {};
+    const monthSlas = monthlySla[selectedMonth] || {};
+    const monthConfs = monthlyConformity[selectedMonth] || {};
 
     technicians.forEach(tech => {
       // Find teams this tech belongs to
@@ -58,7 +75,7 @@ export default function Commissions({
           try {
             const date = parseISO(dateStr);
             if (isNaN(date.getTime())) return;
-            if (format(date, 'yyyy-MM') === currentMonth) {
+            if (format(date, 'yyyy-MM') === selectedMonth) {
               if (!dailyStats[dateStr]) dailyStats[dateStr] = { total: 0, completed: 0 };
               const isScheduledDay = dateStr === order.openingDate;
               const isClosingDay = dateStr === order.closingDate && order.status === 'Concluída';
@@ -82,15 +99,16 @@ export default function Commissions({
       const monthOrders = techOrders.filter(o => {
         const opDate = parseISO(o.openingDate);
         const clDate = o.closingDate ? parseISO(o.closingDate) : null;
-        return format(opDate, 'yyyy-MM') === currentMonth || (clDate && format(clDate, 'yyyy-MM') === currentMonth);
+        return format(opDate, 'yyyy-MM') === selectedMonth || (clDate && format(clDate, 'yyyy-MM') === selectedMonth);
       });
 
       const openOS = monthOrders.length;
-      const closedOS = monthOrders.filter(o => o.status === 'Concluída' && o.closingDate && format(parseISO(o.closingDate), 'yyyy-MM') === currentMonth).length;
+      const closedOS = monthOrders.filter(o => o.status === 'Concluída' && o.closingDate && format(parseISO(o.closingDate), 'yyyy-MM') === selectedMonth).length;
       const delayedOS = monthOrders.filter(o => o.isDelayed).length;
       const productivity = daysWorkedList.length > 0 ? totalDailyPercentage / daysWorkedList.length : 0;
       const sla = monthSlas[tech.id] ?? 100;
       const conformity = monthConfs[tech.id] ?? 10;
+// ... (rest remains similar but use selectedMonth)
 
       // NEW CALCULATION LOGIC
       if (tech.category === 'Manutenção') {
@@ -183,7 +201,7 @@ export default function Commissions({
     });
 
     return results;
-  }, [technicians, teams, orders, currentMonth, monthlySla, monthlyConformity]);
+  }, [technicians, teams, orders, selectedMonth, monthlySla, monthlyConformity]);
 
   const totals = useMemo(() => {
     const comDataForAvg = commissionData.filter(c => c.category !== 'Manutenção');
@@ -209,14 +227,27 @@ export default function Commissions({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Cálculo de Comissões</h2>
           <p className="text-muted-foreground">Resultados financeiros baseados em produtividade e SLA.</p>
         </div>
-        <Badge variant="outline" className="px-4 py-1 text-sm font-medium border-purple-200 bg-purple-50 text-purple-700">
-          Referência: {currentMonth}
-        </Badge>
+        
+        <div className="flex items-center gap-3 bg-white p-1 rounded-lg border shadow-sm">
+          {monthOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSelectedMonth(opt.value)}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${
+                selectedMonth === opt.value 
+                  ? 'bg-purple-600 text-white shadow-md' 
+                  : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -309,24 +340,38 @@ export default function Commissions({
                       {data.category === 'Manutenção' ? (
                         <div className="text-xs font-bold text-slate-400">-</div>
                       ) : (
-                        <>
-                          <div className="text-xs font-bold text-amber-600">
-                            {data.sla.toFixed(1)}%
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              type="number" 
+                              value={monthlySla[selectedMonth]?.[data.technicianId] ?? 100}
+                              onChange={(e) => onUpdateSla(selectedMonth, data.technicianId, parseFloat(e.target.value) || 0)}
+                              className="h-7 w-16 text-center text-[10px] font-bold border-amber-200 p-1"
+                              disabled={!isAdmin}
+                            />
+                            <span className="text-[10px] text-amber-600 font-bold">%</span>
                           </div>
-                          <div className="text-[9px] text-muted-foreground">R$ {data.slaBonus}</div>
-                        </>
+                          <div className="text-[9px] text-muted-foreground font-medium">Bônus: R$ {data.slaBonus}</div>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
                       {data.category === 'Manutenção' ? (
                         <div className="text-xs font-bold text-slate-400">-</div>
                       ) : (
-                        <>
-                          <div className="text-xs font-bold text-blue-600">
-                            {data.conformity.toFixed(1)}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              type="number" 
+                              step="0.1"
+                              value={monthlyConformity[selectedMonth]?.[data.technicianId] ?? 10}
+                              onChange={(e) => onUpdateConformity(selectedMonth, data.technicianId, parseFloat(e.target.value) || 0)}
+                              className="h-7 w-16 text-center text-[10px] font-bold border-blue-200 p-1"
+                              disabled={!isAdmin}
+                            />
                           </div>
-                          <div className="text-[9px] text-muted-foreground">R$ {data.conformityBonus}</div>
-                        </>
+                          <div className="text-[9px] text-muted-foreground font-medium">Bônus: R$ {data.conformityBonus}</div>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-right font-bold text-purple-700">
@@ -404,8 +449,8 @@ export default function Commissions({
                                 type="number" 
                                 min="0" 
                                 max="100"
-                                value={monthlySla[currentMonth]?.[selectedData?.technicianId || ''] ?? 100}
-                                onChange={(e) => selectedData && onUpdateSla(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
+                                value={monthlySla[selectedMonth]?.[selectedData?.technicianId || ''] ?? 100}
+                                onChange={(e) => selectedData && onUpdateSla(selectedMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
                                 className="h-7 w-16 text-center text-xs font-bold border-amber-200"
                                 disabled={!isAdmin}
                               />
@@ -430,8 +475,8 @@ export default function Commissions({
                                 min="0" 
                                 max="10"
                                 step="0.1"
-                                value={monthlyConformity[currentMonth]?.[selectedData?.technicianId || ''] ?? 10}
-                                onChange={(e) => selectedData && onUpdateConformity(currentMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
+                                value={monthlyConformity[selectedMonth]?.[selectedData?.technicianId || ''] ?? 10}
+                                onChange={(e) => selectedData && onUpdateConformity(selectedMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
                                 className="h-7 w-16 text-center text-xs font-bold border-blue-200"
                                 disabled={!isAdmin}
                               />
