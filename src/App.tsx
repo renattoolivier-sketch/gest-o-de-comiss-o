@@ -13,7 +13,7 @@ import MonthlySpreadsheet from './components/MonthlySpreadsheet';
 import UserManagement from './components/UserManagement';
 import SystemLogs from './components/SystemLogs';
 import Login from './components/Login';
-import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle, RefreshCcw, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Wifi, CloudOff, Cloud, LogOut, Shield, AlertCircle, RefreshCcw, ClipboardList, Moon, Sun } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from './lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,15 @@ export default function App() {
   const [monthlySla, setMonthlySla] = useState<Record<string, Record<string, number>>>({});
   const [monthlyConformity, setMonthlyConformity] = useState<Record<string, Record<string, number>>>({});
   const [currentTab, setCurrentTab] = useState('dashboard');
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('telecom_theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (e) {
+      return false;
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -701,6 +710,15 @@ export default function App() {
     localStorage.removeItem('telecom_user');
   };
 
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('telecom_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
   const handleResetData = async () => {
     setIsLoading(true);
     try {
@@ -861,10 +879,10 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-purple-50 dark:bg-slate-950 flex items-center justify-center transition-colors">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="text-purple-700 font-medium">Sincronizando com Supabase...</p>
+          <p className="text-purple-700 dark:text-purple-400 font-medium font-sans uppercase tracking-widest text-xs">Sincronizando...</p>
         </div>
       </div>
     );
@@ -875,63 +893,72 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-purple-50 text-slate-900 font-sans">
+    <div className="min-h-screen bg-purple-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
       {/* Header */}
-      <header className="bg-white border-bottom border-purple-200 sticky top-0 z-10 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-purple-100 dark:border-slate-800 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-purple-600 p-2 rounded-lg relative">
-              <div className="absolute -top-1 -left-1 w-3 h-3 bg-cyan-400 rounded-sm border-2 border-white" />
+              <div className="absolute -top-1 -left-1 w-3 h-3 bg-cyan-400 rounded-sm border-2 border-white dark:border-slate-900" />
               <Wifi className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-800">Infolink <span className="text-purple-600">Ultra Internet</span></h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white">Infolink <span className="text-purple-600 dark:text-purple-400">Ultra Internet</span></h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="rounded-full w-8 h-8 border-purple-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => fetchData(true)}
-              className="hidden md:flex items-center gap-2 border-purple-200 text-purple-700 hover:bg-purple-50 h-8 text-[10px] font-bold uppercase"
+              className="hidden md:flex items-center gap-2 border-purple-200 dark:border-slate-700 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800 h-8 text-[10px] font-bold uppercase"
             >
               <RefreshCcw className="w-3 h-3" /> Sincronizar
             </Button>
             {dbError && (
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-bold text-rose-600 uppercase">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">
                 <AlertCircle className="w-3 h-3" />
                 {dbError.length > 40 ? dbError.substring(0, 40) + '...' : dbError}
               </div>
             )}
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border text-[10px] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider">
               {isOnline ? (
                 <>
                   <Cloud className="w-3 h-3 text-emerald-500" />
-                  <span className="text-emerald-600">Supabase Online</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">Supabase Online</span>
                 </>
               ) : (
                 <>
                   <CloudOff className="w-3 h-3 text-rose-500" />
-                  <span className="text-rose-600">Sincronização Offline</span>
+                  <span className="text-rose-600 dark:text-rose-400">Offline</span>
                 </>
               )}
             </div>
             {isOnline && (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-emerald-600 uppercase">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                Tempo Real OK
+                Realtime OK
               </div>
             )}
-            <div className="flex items-center gap-3 border-l pl-4">
+            <div className="flex items-center gap-3 border-l dark:border-slate-800 pl-4">
               <div className="hidden md:block text-right">
                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider leading-none mb-1">
                   {user.role === 'admin' ? 'Administrador' : 'Visualizador'}
                 </p>
-                <p className="text-sm font-bold leading-none">{user.username}</p>
+                <p className="text-sm font-bold leading-none dark:text-slate-200">{user.username}</p>
               </div>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={handleLogout}
-                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
               >
                 <LogOut className="w-5 h-5" />
               </Button>
@@ -943,22 +970,22 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-8">
           <div className="flex justify-center">
-            <TabsList className={`grid w-full ${user.role === 'admin' ? 'max-w-2xl grid-cols-5' : (user.role === 'operator' ? 'max-w-xl grid-cols-3' : 'max-w-md grid-cols-3')} bg-white border shadow-sm`}>
-              <TabsTrigger value="dashboard" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+            <TabsList className={`grid w-full ${user.role === 'admin' ? 'max-w-2xl grid-cols-5' : (user.role === 'operator' ? 'max-w-xl grid-cols-3' : 'max-w-md grid-cols-3')} bg-white dark:bg-slate-900 border dark:border-slate-800 shadow-sm`}>
+              <TabsTrigger value="dashboard" className="data-[state=active]:bg-purple-50 dark:data-[state=active]:bg-slate-800 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-400">
                 <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
               </TabsTrigger>
-              <TabsTrigger value="technicians" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+              <TabsTrigger value="technicians" className="data-[state=active]:bg-purple-50 dark:data-[state=active]:bg-slate-800 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-400">
                 <Users className="w-4 h-4 mr-2" /> Equipes
               </TabsTrigger>
-              <TabsTrigger value="commissions" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+              <TabsTrigger value="commissions" className="data-[state=active]:bg-purple-50 dark:data-[state=active]:bg-slate-800 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-400">
                 <Calculator className="w-4 h-4 mr-2" /> Comissões
               </TabsTrigger>
               {user.role === 'admin' && (
                 <>
-                  <TabsTrigger value="logs" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+                  <TabsTrigger value="logs" className="data-[state=active]:bg-purple-50 dark:data-[state=active]:bg-slate-800 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-400">
                     <ClipboardList className="w-4 h-4 mr-2" /> Logs
                   </TabsTrigger>
-                  <TabsTrigger value="users" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
+                  <TabsTrigger value="users" className="data-[state=active]:bg-purple-50 dark:data-[state=active]:bg-slate-800 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-400">
                     <Shield className="w-4 h-4 mr-2" /> Usuários
                   </TabsTrigger>
                 </>

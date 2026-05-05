@@ -63,24 +63,24 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-purple-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300">
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-600 p-3 rounded-2xl shadow-lg shadow-purple-200 relative">
-              <div className="absolute -top-1 -left-1 w-4 h-4 bg-cyan-400 rounded-md border-2 border-white" />
+            <div className="bg-purple-600 p-3 rounded-2xl shadow-lg shadow-purple-200 dark:shadow-purple-900/20 relative">
+              <div className="absolute -top-1 -left-1 w-4 h-4 bg-cyan-400 rounded-md border-2 border-white dark:border-slate-900" />
               <Wifi className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800">
-              Infolink <span className="text-purple-600">Ultra Internet</span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">
+              Infolink <span className="text-purple-600 dark:text-purple-400">Ultra Internet</span>
             </h1>
           </div>
         </div>
 
-        <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
+        <Card className="border-none shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Bem-vindo de volta</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-2xl font-bold dark:text-white">Bem-vindo de volta</CardTitle>
+            <CardDescription className="dark:text-slate-400">
               Entre com suas credenciais para acessar o sistema
             </CardDescription>
           </CardHeader>
@@ -93,13 +93,13 @@ export default function Login({ onLogin }: LoginProps) {
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="username">Usuário</Label>
+                <Label htmlFor="username" className="dark:text-slate-300">Usuário</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <User className="absolute left-3 top-3 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <Input
                     id="username"
                     placeholder="Seu usuário"
-                    className="pl-10"
+                    className="pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -107,14 +107,14 @@ export default function Login({ onLogin }: LoginProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password" className="dark:text-slate-300">Senha</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
-                    className="pl-10"
+                    className="pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required

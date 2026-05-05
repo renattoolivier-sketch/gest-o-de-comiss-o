@@ -322,20 +322,20 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-grow sm:flex-grow-0 flex gap-2">
             <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <Input 
                 placeholder="Nº do Protocolo..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchProtocol()}
-                className="pl-9 w-full sm:w-48 bg-white"
+                className="pl-9 w-full sm:w-48 bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
               />
             </div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleSearchProtocol}
-              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+              className="border-purple-200 dark:border-slate-800 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800"
             >
               Buscar
             </Button>
@@ -344,7 +344,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
             type="month" 
             value={filterMonth} 
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="w-full sm:w-40 bg-white"
+            className="w-full sm:w-40 bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
           />
           {canManageOS ? (
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) resetForm(); }}>
@@ -432,104 +432,104 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-purple-500 shadow-sm">
+        <Card className="border-l-4 border-l-purple-500 shadow-sm dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total de O.S.</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold dark:text-white">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-rose-500 shadow-sm">
+        <Card className="border-l-4 border-l-rose-500 shadow-sm dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">O.S. Atrasadas (Mês)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-rose-600">{stats.delayed}</div>
+            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.delayed}</div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 shadow-sm">
+        <Card className="border-l-4 border-l-emerald-500 shadow-sm dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Concluídas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.completed}</div>
+            <div className="text-2xl font-bold dark:text-white">{stats.completed}</div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 border-purple-100 bg-purple-100/50 shadow-md">
+        <Card className="lg:col-span-1 border-purple-100 dark:border-slate-800 bg-purple-100/50 dark:bg-slate-900/50 shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-purple-700">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-purple-700 dark:text-purple-400">
               <Plus className="w-5 h-5" /> Abertura de O.S.
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!canManageOS && (
-              <div className="p-3 bg-white border border-purple-100 text-purple-600 rounded-lg text-xs flex items-center gap-2 mb-2">
+              <div className="p-3 bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 text-purple-600 dark:text-purple-400 rounded-lg text-xs flex items-center gap-2 mb-2">
                 <Lock className="w-4 h-4" /> Acesso restrito.
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="quick-protocol" className="text-xs font-bold uppercase text-slate-500">Protocolo</Label>
+              <Label htmlFor="quick-protocol" className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Protocolo</Label>
               <Input 
                 id="quick-protocol" 
                 value={protocol} 
                 onChange={(e) => setProtocol(e.target.value)} 
                 placeholder="Ex: OS-2024-001" 
-                className="bg-white"
+                className="bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
                 disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick-responsible" className="text-xs font-bold uppercase text-slate-500">Responsável</Label>
+              <Label htmlFor="quick-responsible" className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Responsável</Label>
               <Select value={responsibleId} onValueChange={setResponsibleId} disabled={!canManageOS}>
-                <SelectTrigger id="quick-responsible" className="bg-white">
+                <SelectTrigger id="quick-responsible" className="bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="dark:bg-slate-900 dark:border-slate-800">
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Técnicos</div>
                   {technicians.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id} className="dark:focus:bg-slate-800">{t.name}</SelectItem>
                   ))}
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Equipes</div>
                   {teams.map(t => (
-                    <SelectItem key={t.id} value={t.id}>Equipe: {t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id} className="dark:focus:bg-slate-800">Equipe: {t.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick-date" className="text-xs font-bold uppercase text-slate-500">Data de Abertura</Label>
+              <Label htmlFor="quick-date" className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Data de Abertura</Label>
               <Input 
                 id="quick-date" 
                 type="date"
                 value={openingDate} 
                 onChange={(e) => setOpeningDate(e.target.value)} 
-                className="bg-white"
+                className="bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
                 disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick-desc" className="text-xs font-bold uppercase text-slate-500">Descrição</Label>
+              <Label htmlFor="quick-desc" className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Descrição</Label>
               <Input 
                 id="quick-desc" 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
                 placeholder="Detalhes..." 
-                className="bg-white"
+                className="bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
                 disabled={!canManageOS}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick-obs" className="text-xs font-bold uppercase text-slate-500">Observação</Label>
+              <Label htmlFor="quick-obs" className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Observação</Label>
               <Input 
                 id="quick-obs" 
                 value={observation} 
                 onChange={(e) => setObservation(e.target.value)} 
                 placeholder="Obs..." 
-                className="bg-white"
+                className="bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-800"
                 disabled={!canManageOS}
               />
             </div>
@@ -548,32 +548,32 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className="lg:col-span-3 dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-purple-600" /> Resumo por Responsável
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+              <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Resumo por Responsável
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border overflow-hidden max-h-[400px] overflow-y-auto">
+            <div className="rounded-md border dark:border-slate-800 overflow-hidden max-h-[400px] overflow-y-auto">
               <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
-                  <TableRow>
-                    <TableHead className="w-[100px] bg-muted/50">Data</TableHead>
-                    <TableHead className="bg-muted/50">Responsável / Membros</TableHead>
-                    <TableHead className="text-center bg-muted/50">Total O.S.</TableHead>
-                    <TableHead className="text-center bg-muted/50">Concluídas</TableHead>
-                    <TableHead className="text-center bg-muted/50">Movidas</TableHead>
-                    <TableHead className="text-center bg-muted/50">Atrasos</TableHead>
-                    <TableHead className="text-center bg-muted/50">Restantes</TableHead>
-                    <TableHead className="text-center bg-muted/50">% Prod.</TableHead>
-                    <TableHead className="text-right bg-muted/50">Ações</TableHead>
+                <TableHeader className="bg-muted/50 dark:bg-slate-800 sticky top-0 z-10 shadow-sm">
+                  <TableRow className="dark:border-slate-800">
+                    <TableHead className="w-[100px] bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Data</TableHead>
+                    <TableHead className="bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Responsável / Membros</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Total O.S.</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Concluídas</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Movidas</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Atrasos</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Restantes</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">% Prod.</TableHead>
+                    <TableHead className="text-right bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {responsibleSummary.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                    <TableRow className="dark:border-slate-800">
+                      <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                         Nenhuma atividade registrada para este mês.
                       </TableCell>
                     </TableRow>
@@ -581,10 +581,10 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                     responsibleSummary.map((item, index) => (
                       <TableRow 
                         key={`${item.date}-${item.id}-${index}`} 
-                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        className="cursor-pointer hover:bg-muted/50 dark:hover:bg-slate-800/50 transition-colors dark:border-slate-800"
                         onClick={() => setSelectedResponsible({ id: item.id, name: item.name, date: item.date })}
                       >
-                        <TableCell className="text-xs font-medium">
+                        <TableCell className="text-xs font-medium dark:text-slate-300">
                           {(() => {
                             try {
                               const d = parseISO(item.date);
@@ -596,7 +596,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-700">{item.name}</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">{item.name}</span>
                             {item.members && (
                               <span className="text-[10px] text-muted-foreground italic">
                                 Membros: {item.members}
@@ -604,17 +604,17 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center font-bold">{item.total}</TableCell>
-                        <TableCell className="text-center text-emerald-600 font-bold">{item.completed}</TableCell>
-                        <TableCell className="text-center text-indigo-600 font-bold">{item.moved}</TableCell>
-                        <TableCell className="text-center text-rose-600 font-bold">{item.delayed}</TableCell>
-                        <TableCell className="text-center text-amber-600 font-bold">{item.remaining}</TableCell>
+                        <TableCell className="text-center font-bold dark:text-slate-200">{item.total}</TableCell>
+                        <TableCell className="text-center text-emerald-600 dark:text-emerald-400 font-bold">{item.completed}</TableCell>
+                        <TableCell className="text-center text-indigo-600 dark:text-indigo-400 font-bold">{item.moved}</TableCell>
+                        <TableCell className="text-center text-rose-600 dark:text-rose-400 font-bold">{item.delayed}</TableCell>
+                        <TableCell className="text-center text-amber-600 dark:text-amber-400 font-bold">{item.remaining}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`text-xs font-bold ${item.percentage >= 100 ? 'text-emerald-600' : item.percentage > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
+                            <span className={`text-xs font-bold ${item.percentage >= 100 ? 'text-emerald-600 dark:text-emerald-400' : item.percentage > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`}>
                               {Math.round(item.percentage)}%
                             </span>
-                            <div className="w-12 bg-slate-100 h-1 rounded-full overflow-hidden">
+                            <div className="w-12 bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full ${item.percentage >= 100 ? 'bg-emerald-500' : 'bg-purple-500'}`}
                                 style={{ width: `${Math.min(item.percentage, 100)}%` }}
@@ -623,7 +623,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="text-purple-600">
+                          <Button variant="ghost" size="sm" className="text-purple-600 dark:text-purple-400">
                             Ver Detalhes
                           </Button>
                         </TableCell>

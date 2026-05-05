@@ -211,44 +211,46 @@ export default function UserManagement({ onLog, currentUser }: UserManagementPro
           <DialogTrigger render={<Button className="bg-purple-600 hover:bg-purple-700" onClick={openAddDialog} />}>
             <UserPlus className="w-4 h-4 mr-2" /> Novo Usuário
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="dark:bg-slate-900 dark:border-slate-800">
             <DialogHeader>
-              <DialogTitle>{editingUserId ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}</DialogTitle>
+              <DialogTitle className="dark:text-white">{editingUserId ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               {error && (
-                <div className="flex items-center gap-2 p-3 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">
+                <div className="flex items-center gap-2 p-3 text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-lg">
                   <AlertCircle className="w-4 h-4" />
                   {error}
                 </div>
               )}
               <div className="grid gap-2">
-                <Label htmlFor="new-username">Usuário</Label>
+                <Label htmlFor="new-username" className="dark:text-slate-300">Usuário</Label>
                 <Input 
                   id="new-username" 
                   value={username} 
                   onChange={(e) => setUsername(e.target.value)} 
                   placeholder="Ex: joao.silva" 
                   disabled={username === 'renato'}
+                  className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="new-password">Senha {editingUserId && '(Deixe vazio para não alterar)'}</Label>
+                <Label htmlFor="new-password" className="dark:text-slate-300">Senha {editingUserId && '(Deixe vazio para não alterar)'}</Label>
                 <Input 
                   id="new-password" 
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  placeholder={editingUserId ? "Nova senha (opcional)" : "Senha de acesso"} 
+                  placeholder={editingUserId ? "Nova senha (opcional)" : "Senha de acesso"}
+                  className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Nível de Acesso</Label>
+                <Label className="dark:text-slate-300">Nível de Acesso</Label>
                 <Select value={role} onValueChange={(v: UserRole) => setRole(v)} disabled={username === 'renato'}>
-                  <SelectTrigger>
+                  <SelectTrigger className="dark:bg-slate-800 dark:border-slate-700 dark:text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="dark:bg-slate-900 dark:border-slate-800">
                     <SelectItem value="admin">Administrador (Acesso Total)</SelectItem>
                     <SelectItem value="operator">Operador (Adicionar/Editar O.S.)</SelectItem>
                     <SelectItem value="viewer">Visualizador (Somente Leitura)</SelectItem>
@@ -260,10 +262,10 @@ export default function UserManagement({ onLog, currentUser }: UserManagementPro
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Cancelar</Button>
               <Button 
                 onClick={editingUserId ? handleEditUser : handleAddUser} 
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -274,41 +276,41 @@ export default function UserManagement({ onLog, currentUser }: UserManagementPro
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="dark:bg-slate-900 dark:border-slate-800">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <User className="w-5 h-5 text-purple-600" /> Usuários Cadastrados
+          <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+            <User className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Usuários Cadastrados
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-purple-600 dark:text-purple-400" />
             </div>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Permissão</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+              <TableHeader className="dark:bg-slate-800">
+                <TableRow className="dark:border-slate-800">
+                  <TableHead className="dark:text-slate-300">Usuário</TableHead>
+                  <TableHead className="dark:text-slate-300">Permissão</TableHead>
+                  <TableHead className="text-right dark:text-slate-300">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map(u => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.username}</TableCell>
+                  <TableRow key={u.id} className="dark:border-slate-800">
+                    <TableCell className="font-medium dark:text-slate-200">{u.username}</TableCell>
                     <TableCell>
                       {u.role === 'admin' ? (
-                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">
+                        <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 border-purple-200 dark:border-purple-800">
                           <ShieldCheck className="w-3 h-3 mr-1" /> Administrador
                         </Badge>
                       ) : u.role === 'operator' ? (
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">
+                        <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 border-blue-200 dark:border-blue-800">
                           <ShieldCheck className="w-3 h-3 mr-1" /> Operador
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-300">
                           <Shield className="w-3 h-3 mr-1" /> Visualizador
                         </Badge>
                       )}
@@ -318,7 +320,7 @@ export default function UserManagement({ onLog, currentUser }: UserManagementPro
                         variant="ghost" 
                         size="icon" 
                         onClick={() => openEditDialog(u)} 
-                        className="h-8 w-8 text-blue-600"
+                        className="h-8 w-8 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -326,7 +328,7 @@ export default function UserManagement({ onLog, currentUser }: UserManagementPro
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleDeleteUser(u.id, u.username)} 
-                        className="h-8 w-8 text-rose-600"
+                        className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800"
                         disabled={u.username === 'renato'}
                       >
                         <Trash2 className="h-4 w-4" />

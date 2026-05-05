@@ -233,7 +233,7 @@ export default function Commissions({
           <p className="text-muted-foreground">Resultados financeiros baseados em produtividade e SLA.</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white p-1 rounded-lg border shadow-sm">
+        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-1 rounded-lg border dark:border-slate-800 shadow-sm">
           {monthOptions.map((opt) => (
             <button
               key={opt.value}
@@ -241,7 +241,7 @@ export default function Commissions({
               className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${
                 selectedMonth === opt.value 
                   ? 'bg-purple-600 text-white shadow-md' 
-                  : 'text-slate-500 hover:bg-slate-50'
+                  : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               {opt.label}
@@ -262,23 +262,23 @@ export default function Commissions({
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Média de Produtividade</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-slate-400">Média de Produtividade</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2">
+            <div className="text-2xl font-bold flex items-center gap-2 dark:text-white">
               <TrendingUp className="w-6 h-6 text-emerald-500" />
               {totals.avgProductivity.toFixed(1)}%
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Técnicos Comissionados</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-slate-400">Técnicos Comissionados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2">
+            <div className="text-2xl font-bold flex items-center gap-2 dark:text-white">
               <Award className="w-6 h-6 text-amber-500" />
               {totals.eligibleCount} / {technicians.length}
             </div>
@@ -286,59 +286,59 @@ export default function Commissions({
         </Card>
       </div>
 
-      <Card>
+      <Card className="dark:bg-slate-900 dark:border-slate-800">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-purple-600" /> Resumo de Comissões
+          <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+            <Calculator className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Resumo de Comissões
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
+          <div className="rounded-md border dark:border-slate-800 overflow-hidden">
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead>Técnico</TableHead>
-                  <TableHead className="text-center">Categoria</TableHead>
-                  <TableHead className="text-center">Produtividade (60%)</TableHead>
-                  <TableHead className="text-center">SLA (25%)</TableHead>
-                  <TableHead className="text-center">Conf (15%)</TableHead>
-                  <TableHead className="text-right">Comissão Final</TableHead>
+              <TableHeader className="bg-muted/50 dark:bg-slate-800">
+                <TableRow className="dark:border-slate-800">
+                  <TableHead className="dark:text-slate-300">Técnico</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">Categoria</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">Produtividade (60%)</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">SLA (25%)</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">Conf (15%)</TableHead>
+                  <TableHead className="text-right dark:text-slate-300">Comissão Final</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {commissionData.map((data) => (
-                  <TableRow key={data.technicianId}>
+                  <TableRow key={data.technicianId} className="dark:border-slate-800">
                     <TableCell>
                       <button 
                         onClick={() => setSelectedTechId(data.technicianId)}
                         className="text-left group"
                       >
-                        <div className="font-bold text-slate-800 group-hover:text-purple-600 transition-colors uppercase tracking-tight">
+                        <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors uppercase tracking-tight">
                           {data.technicianName}
                         </div>
-                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <div className="text-[10px] text-muted-foreground dark:text-slate-500 flex items-center gap-1">
                           <Search className="w-2 h-2" /> Clique para ver o detalhamento
                         </div>
                       </button>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className="text-[10px] font-bold uppercase">{data.category}</Badge>
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase dark:text-slate-400 dark:border-slate-700">{data.category}</Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       {data.category === 'Manutenção' ? (
-                        <div className="text-xs font-bold text-slate-400">-</div>
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <>
                           <div className={`text-xs font-bold ${getProductivityColor(data.productivity)}`}>
                             {data.productivity.toFixed(1)}%
                           </div>
-                          <div className="text-[9px] text-muted-foreground">R$ {data.osBonus}</div>
+                          <div className="text-[9px] text-muted-foreground dark:text-slate-500">R$ {data.osBonus}</div>
                         </>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
                       {data.category === 'Manutenção' ? (
-                        <div className="text-xs font-bold text-slate-400">-</div>
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
                           <div className="flex items-center gap-1">
@@ -346,18 +346,18 @@ export default function Commissions({
                               type="number" 
                               value={monthlySla[selectedMonth]?.[data.technicianId] ?? 100}
                               onChange={(e) => onUpdateSla(selectedMonth, data.technicianId, parseFloat(e.target.value) || 0)}
-                              className="h-7 w-16 text-center text-[10px] font-bold border-amber-200 p-1"
+                              className="h-7 w-16 text-center text-[10px] font-bold border-amber-200 dark:border-amber-900/50 p-1 dark:bg-slate-800 dark:text-white"
                               disabled={!isAdmin}
                             />
-                            <span className="text-[10px] text-amber-600 font-bold">%</span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold">%</span>
                           </div>
-                          <div className="text-[9px] text-muted-foreground font-medium">Bônus: R$ {data.slaBonus}</div>
+                          <div className="text-[9px] text-muted-foreground dark:text-slate-500 font-medium">Bônus: R$ {data.slaBonus}</div>
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
                       {data.category === 'Manutenção' ? (
-                        <div className="text-xs font-bold text-slate-400">-</div>
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
                           <div className="flex items-center gap-1">
@@ -366,15 +366,15 @@ export default function Commissions({
                               step="0.1"
                               value={monthlyConformity[selectedMonth]?.[data.technicianId] ?? 10}
                               onChange={(e) => onUpdateConformity(selectedMonth, data.technicianId, parseFloat(e.target.value) || 0)}
-                              className="h-7 w-16 text-center text-[10px] font-bold border-blue-200 p-1"
+                              className="h-7 w-16 text-center text-[10px] font-bold border-blue-200 dark:border-blue-900/50 p-1 dark:bg-slate-800 dark:text-white"
                               disabled={!isAdmin}
                             />
                           </div>
-                          <div className="text-[9px] text-muted-foreground font-medium">Bônus: R$ {data.conformityBonus}</div>
+                          <div className="text-[9px] text-muted-foreground dark:text-slate-500 font-medium">Bônus: R$ {data.conformityBonus}</div>
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-bold text-purple-700">
+                    <TableCell className="text-right font-bold text-purple-700 dark:text-purple-400">
                       R$ {(data.finalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
@@ -387,34 +387,34 @@ export default function Commissions({
 
       {/* Detailed Commission Dialog */}
       <Dialog open={!!selectedTechId} onOpenChange={(open) => !open && setSelectedTechId(null)}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl dark:bg-slate-950">
           {selectedData && (
             <div className="overflow-hidden">
-              <div className="bg-slate-50 border-b p-6">
+              <div className="bg-slate-50 dark:bg-slate-900 border-b dark:border-slate-800 p-6">
                 <div className="flex items-center gap-3">
-                  <div className="bg-purple-100 p-2 rounded-full">
-                    <User className="w-6 h-6 text-purple-600" />
+                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-full">
+                    <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <DialogTitle className="text-xl font-black text-slate-800 uppercase tracking-tight">
+                    <DialogTitle className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
                       {selectedData.technicianName}
                     </DialogTitle>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    <p className="text-[10px] font-bold text-muted-foreground dark:text-slate-500 uppercase tracking-widest">
                       Detalhamento de Comissão
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="p-6 space-y-6 bg-white">
+              <div className="p-6 space-y-6 bg-white dark:bg-slate-950">
                 {/* Top Stats Cards */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Categoria</p>
-                    <Badge variant="outline" className="text-xs font-bold uppercase py-0">{(selectedData?.category || 'N/A')}</Badge>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <p className="text-[10px] text-muted-foreground dark:text-slate-500 uppercase font-black mb-1">Categoria</p>
+                    <Badge variant="outline" className="text-xs font-bold uppercase py-0 dark:text-slate-400 dark:border-slate-700">{(selectedData?.category || 'N/A')}</Badge>
                   </div>
-                  <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col items-center justify-center text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase font-black mb-1">Produtividade OS</p>
-                    <p className={`text-lg font-black ${selectedData?.category === 'Manutenção' ? 'text-slate-400' : getProductivityColor(selectedData?.productivity || 0)}`}>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <p className="text-[10px] text-muted-foreground dark:text-slate-500 uppercase font-black mb-1">Produtividade OS</p>
+                    <p className={`text-lg font-black ${selectedData?.category === 'Manutenção' ? 'text-slate-400 dark:text-slate-600' : getProductivityColor(selectedData?.productivity || 0)}`}>
                       {selectedData?.category === 'Manutenção' ? '-' : `${(selectedData?.productivity || 0).toFixed(1)}%`}
                     </p>
                   </div>
@@ -423,27 +423,27 @@ export default function Commissions({
                 {/* Calculation Memory */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Calculator className="w-4 h-4 text-purple-500" />
-                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Memória de Cálculo (Pesos)</h4>
+                    <Calculator className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memória de Cálculo (Pesos)</h4>
                   </div>
                   
                   <div className="space-y-3 text-sm">
                     {selectedData?.category !== 'Manutenção' ? (
                       <>
-                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-xl space-y-2">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-600">O.S. (Peso 60%)</span>
-                            <span className="text-muted-foreground">Range {(selectedData?.productivity || 0).toFixed(1)}% -&gt; R$ {selectedData?.osBonus || 0}</span>
+                            <span className="font-bold text-slate-600 dark:text-slate-400">O.S. (Peso 60%)</span>
+                            <span className="text-muted-foreground dark:text-slate-500">Range {(selectedData?.productivity || 0).toFixed(1)}% -&gt; R$ {selectedData?.osBonus || 0}</span>
                           </div>
                           <div className="flex justify-between items-center font-black">
-                            <span>Crédito OS:</span>
-                            <span className="text-purple-600">R$ {(selectedData?.weightedOS || 0).toFixed(2)}</span>
+                            <span className="dark:text-slate-300">Crédito OS:</span>
+                            <span className="text-purple-600 dark:text-purple-400">R$ {(selectedData?.weightedOS || 0).toFixed(2)}</span>
                           </div>
                         </div>
 
-                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-xl space-y-2">
                           <div className="flex justify-between items-center gap-4">
-                            <Label className="text-xs font-bold text-slate-600">SLA (Peso 25%)</Label>
+                            <Label className="text-xs font-bold text-slate-600 dark:text-slate-400">SLA (Peso 25%)</Label>
                             <div className="flex items-center gap-2">
                               <Input 
                                 type="number" 
@@ -451,24 +451,24 @@ export default function Commissions({
                                 max="100"
                                 value={monthlySla[selectedMonth]?.[selectedData?.technicianId || ''] ?? 100}
                                 onChange={(e) => selectedData && onUpdateSla(selectedMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
-                                className="h-7 w-16 text-center text-xs font-bold border-amber-200"
+                                className="h-7 w-16 text-center text-xs font-bold border-amber-200 dark:border-amber-900/50 dark:bg-slate-800 dark:text-white"
                                 disabled={!isAdmin}
                               />
-                              <span className="text-[10px] font-bold text-amber-600">%</span>
+                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500">%</span>
                             </div>
                           </div>
-                          <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground dark:text-slate-500">
                             <span>Range {(selectedData?.sla || 0).toFixed(0)}% -&gt; R$ {selectedData?.slaBonus || 0}</span>
                           </div>
                           <div className="flex justify-between items-center font-black">
-                            <span>Crédito SLA:</span>
-                            <span className="text-amber-600">R$ {(selectedData?.weightedSLA || 0).toFixed(2)}</span>
+                            <span className="dark:text-slate-300">Crédito SLA:</span>
+                            <span className="text-amber-600 dark:text-amber-500">R$ {(selectedData?.weightedSLA || 0).toFixed(2)}</span>
                           </div>
                         </div>
 
-                        <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-xl space-y-2">
                           <div className="flex justify-between items-center gap-4">
-                            <Label className="text-xs font-bold text-slate-600">CONFORMIDADE (Peso 15%)</Label>
+                            <Label className="text-xs font-bold text-slate-600 dark:text-slate-400">CONFORMIDADE (Peso 15%)</Label>
                             <div className="flex items-center gap-2">
                               <Input 
                                 type="number" 
@@ -477,38 +477,38 @@ export default function Commissions({
                                 step="0.1"
                                 value={monthlyConformity[selectedMonth]?.[selectedData?.technicianId || ''] ?? 10}
                                 onChange={(e) => selectedData && onUpdateConformity(selectedMonth, selectedData.technicianId, parseFloat(e.target.value) || 0)}
-                                className="h-7 w-16 text-center text-xs font-bold border-blue-200"
+                                className="h-7 w-16 text-center text-xs font-bold border-blue-200 dark:border-blue-900/50 dark:bg-slate-800 dark:text-white"
                                 disabled={!isAdmin}
                               />
-                              <span className="text-[10px] font-bold text-blue-600">Nota</span>
+                              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-500">Nota</span>
                             </div>
                           </div>
-                          <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground dark:text-slate-500">
                             <span>Range {(selectedData?.conformity || 0).toFixed(1)} -&gt; R$ {selectedData?.conformityBonus || 0}</span>
                           </div>
                           <div className="flex justify-between items-center font-black">
-                            <span>Crédito Conf:</span>
-                            <span className="text-blue-600">R$ {(selectedData?.weightedConformity || 0).toFixed(2)}</span>
+                            <span className="dark:text-slate-300">Crédito Conf:</span>
+                            <span className="text-blue-600 dark:text-blue-500">R$ {(selectedData?.weightedConformity || 0).toFixed(2)}</span>
                           </div>
                         </div>
 
-                        <div className="py-2 flex justify-between items-center border-t border-dashed">
-                          <span className="text-xs font-bold text-slate-500 uppercase">Potencial da Equipe:</span>
-                          <span className="font-black text-slate-700">R$ {(selectedData?.totalTeamCommission || 0).toFixed(2)}</span>
+                        <div className="py-2 flex justify-between items-center border-t border-dashed dark:border-slate-800">
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Potencial da Equipe:</span>
+                          <span className="font-black text-slate-700 dark:text-slate-300">R$ {(selectedData?.totalTeamCommission || 0).toFixed(2)}</span>
                         </div>
                       </>
                     ) : (
-                      <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl space-y-2">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 rounded-xl space-y-2">
                          <div className="flex justify-between items-center font-black">
-                          <span className="text-purple-700">Comissão Fixa (Manutenção):</span>
-                          <span className="text-purple-700 text-lg">R$ {(selectedData?.finalCommission || 0).toFixed(2)}</span>
+                          <span className="text-purple-700 dark:text-purple-400">Comissão Fixa (Manutenção):</span>
+                          <span className="text-purple-700 dark:text-purple-400 text-lg">R$ {(selectedData?.finalCommission || 0).toFixed(2)}</span>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Final Result Box */}
-                  <div className="mt-8 p-6 bg-purple-600 text-white rounded-3xl shadow-xl relative overflow-hidden group">
+                  <div className="mt-8 p-6 bg-purple-600 dark:bg-purple-700 text-white rounded-3xl shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                       <DollarSign className="w-16 h-16" />
                     </div>
@@ -522,7 +522,7 @@ export default function Commissions({
                 </div>
 
                 {/* Note */}
-                <div className="text-[10px] leading-relaxed text-muted-foreground bg-amber-50 p-3 rounded-xl border border-amber-100 flex gap-3">
+                <div className="text-[10px] leading-relaxed text-muted-foreground bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
                   <Info className="w-4 h-4 text-amber-500 shrink-0" />
                   <p>Cálculo baseado na média diária de conclusão. O redutor de SLA é aplicado diretamente sobre o bônus de produtividade atingido.</p>
                 </div>

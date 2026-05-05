@@ -157,15 +157,15 @@ export default function TechniciansTeams({
           {isAdmin && (
             <>
               <Dialog>
-                <DialogTrigger render={<Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50" />}>
+                <DialogTrigger render={<Button variant="outline" className="border-purple-200 dark:border-slate-800 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800" />}>
                   <RefreshCcw className="w-4 h-4 mr-2" /> Configurar Banco
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl dark:bg-slate-900 dark:border-slate-800">
                   <DialogHeader>
-                    <DialogTitle>Configuração do Banco de Dados (Supabase)</DialogTitle>
+                    <DialogTitle className="dark:text-white">Configuração do Banco de Dados (Supabase)</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800 flex gap-3">
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-lg text-sm text-amber-800 dark:text-amber-400 flex gap-3">
                       <AlertCircle className="w-5 h-5 shrink-0" />
                       <div>
                         <p className="font-bold mb-1">Atenção!</p>
@@ -173,8 +173,8 @@ export default function TechniciansTeams({
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Script SQL para Criar/Corrigir Tabelas:</Label>
-                      <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
+                      <Label className="dark:text-slate-300">Script SQL para Criar/Corrigir Tabelas:</Label>
+                      <div className="bg-slate-900 dark:bg-black text-slate-100 dark:text-slate-300 p-4 rounded-lg font-mono text-xs overflow-auto max-h-[300px]">
                         <pre>{`
 -- SCRIPT DE CONFIGURAÇÃO TOTAL (Execute no SQL Editor do Supabase)
 
@@ -312,11 +312,11 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
                         `}</pre>
                       </div>
                     </div>
-                    <div className="pt-4 border-t flex flex-col gap-3">
-                      <p className="text-xs font-bold text-slate-800">Ferramentas de Sincronização:</p>
+                    <div className="pt-4 border-t dark:border-slate-800 flex flex-col gap-3">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Ferramentas de Sincronização:</p>
                       <Button 
                         variant="secondary" 
-                        className="w-full h-9 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                        className="w-full h-9 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/50"
                         onClick={() => {
                           if (confirm('Isso enviará todos os seus dados locais para o Supabase. Deseja continuar?')) {
                             if (onForceSync) {
@@ -450,28 +450,28 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <User className="w-5 h-5 text-purple-600" /> Gestão de Técnicos
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+              <User className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Gestão de Técnicos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead className="text-center">O.S. Hoje</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableRow className="dark:border-slate-800">
+                  <TableHead className="dark:text-slate-300">Nome</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">O.S. Hoje</TableHead>
+                  <TableHead className="text-right dark:text-slate-300">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {technicians.map(tech => (
-                  <TableRow key={tech.id}>
+                  <TableRow key={tech.id} className="dark:border-slate-800">
                     <TableCell>
-                      <div className="font-medium">{tech.name}</div>
+                      <div className="font-medium dark:text-slate-200">{tech.name}</div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] uppercase font-bold py-0">{tech.category}</Badge>
+                        <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 dark:border-slate-700 dark:text-slate-400">{tech.category}</Badge>
                         <span className="text-[10px] text-muted-foreground">{tech.role}</span>
                       </div>
                     </TableCell>
@@ -480,7 +480,7 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
                         variant="ghost" 
                         size="sm" 
                         onClick={() => setSelectedTechDaily(tech)}
-                        className="h-8 px-2 text-purple-600 hover:bg-purple-50"
+                        className="h-8 px-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800"
                       >
                         <Calendar className="w-4 h-4 mr-1" />
                         {getTechDailyOrders(tech.id).length}
@@ -510,25 +510,25 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Shield className="w-5 h-5 text-purple-600" /> Equipes Formadas
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+              <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Equipes Formadas
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {teams.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground border rounded-md border-dashed">
+                <div className="text-center py-10 text-muted-foreground border dark:border-slate-800 rounded-md border-dashed">
                   Nenhuma equipe formada ainda.
                 </div>
               ) : (
                 teams.map(team => (
-                  <div key={team.id} className="border rounded-lg p-4 space-y-3">
+                  <div key={team.id} className="border dark:border-slate-800 rounded-lg p-4 space-y-3 bg-white dark:bg-slate-900/50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-purple-600">{team.name}</h4>
-                        <p className="text-xs text-muted-foreground">Líder: {technicians.find(t => t.id === team.leaderId)?.name || 'N/A'}</p>
+                        <h4 className="font-bold text-purple-600 dark:text-purple-400">{team.name}</h4>
+                        <p className="text-xs text-muted-foreground italic">Líder: {technicians.find(t => t.id === team.leaderId)?.name || 'N/A'}</p>
                       </div>
                       <div className="flex gap-1">
                         {isAdmin && (
@@ -564,18 +564,18 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
       <Separator className="my-8" />
 
       {isAdmin && (
-        <Card className="border-rose-100 bg-rose-50/30">
+        <Card className="border-rose-100 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/20">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-rose-700">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-rose-700 dark:text-rose-400">
               <RefreshCcw className="w-5 h-5" /> Zona de Perigo: Redefinição de Dados
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start gap-3 p-3 bg-white border border-rose-100 rounded-lg">
+            <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-900 border border-rose-100 dark:border-rose-900/50 rounded-lg">
               <AlertCircle className="w-5 h-5 text-rose-500 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-sm font-bold text-rose-700">Atenção!</p>
-                <p className="text-xs text-slate-600">
+                <p className="text-sm font-bold text-rose-700 dark:text-rose-400">Atenção!</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
                   Esta ação apagará **TODOS** os dados salvos (Técnicos, Equipes e Ordens de Serviço) e restaurará os valores iniciais do sistema. 
                   Use esta opção se encontrar duplicidades ou erros nos dados que não consegue corrigir manualmente.
                 </p>
@@ -584,17 +584,17 @@ UPDATE public.technicians SET category = 'Manutenção' WHERE category = 'Inform
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Button 
                 variant="outline" 
-                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                className="w-full border-purple-200 dark:border-slate-800 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800"
                 onClick={onSaveBackup}
               >
-                <Shield className="w-4 h-4 mr-2" /> Salvar Backup das Configurações
+                <Shield className="w-4 h-4 mr-2" /> Salvar Backup
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                className="w-full border-amber-200 dark:border-slate-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-slate-800"
                 onClick={onRestoreBackup}
               >
-                <History className="w-4 h-4 mr-2" /> Restaurar Último Salvamento
+                <History className="w-4 h-4 mr-2" /> Restaurar Último
               </Button>
             </div>
             <Button 

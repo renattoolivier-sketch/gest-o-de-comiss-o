@@ -71,12 +71,12 @@ export default function SystemLogs() {
 
   const getCategoryBadge = (category: string) => {
     switch (category) {
-      case 'O.S.': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">O.S.</Badge>;
-      case 'Técnico': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">Técnico</Badge>;
-      case 'Equipe': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Equipe</Badge>;
-      case 'Usuário': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200">Usuário</Badge>;
-      case 'Sistema': return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200">Sistema</Badge>;
-      default: return <Badge variant="outline">{category}</Badge>;
+      case 'O.S.': return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 border-blue-200 dark:border-blue-800">O.S.</Badge>;
+      case 'Técnico': return <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800">Técnico</Badge>;
+      case 'Equipe': return <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 border-purple-200 dark:border-purple-800">Equipe</Badge>;
+      case 'Usuário': return <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 border-amber-200 dark:border-amber-800">Usuário</Badge>;
+      case 'Sistema': return <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-700">Sistema</Badge>;
+      default: return <Badge variant="outline" className="dark:text-slate-400 dark:border-slate-700">{category}</Badge>;
     }
   };
 
@@ -93,41 +93,41 @@ export default function SystemLogs() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar em logs..."
-              className="pl-9 bg-white"
+              className="pl-9 bg-white dark:bg-slate-900 dark:border-slate-800 dark:text-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          <div className="flex items-center gap-2 bg-white border rounded-md px-3 h-10 shadow-sm">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-md px-3 h-10 shadow-sm">
             <Filter className="w-4 h-4 text-slate-400" />
             <select 
-              className="text-sm bg-transparent outline-none cursor-pointer font-medium"
+              className="text-sm bg-transparent outline-none cursor-pointer font-medium dark:text-white"
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
             >
-              <option value="all">Todas Categorias</option>
-              <option value="O.S.">O.S.</option>
-              <option value="Técnico">Técnicos</option>
-              <option value="Equipe">Equipes</option>
-              <option value="Usuário">Usuários</option>
-              <option value="Sistema">Sistema</option>
+              <option value="all" className="dark:bg-slate-900">Todas Categorias</option>
+              <option value="O.S." className="dark:bg-slate-900">O.S.</option>
+              <option value="Técnico" className="dark:bg-slate-900">Técnicos</option>
+              <option value="Equipe" className="dark:bg-slate-900">Equipes</option>
+              <option value="Usuário" className="dark:bg-slate-900">Usuários</option>
+              <option value="Sistema" className="dark:bg-slate-900">Sistema</option>
             </select>
           </div>
         </div>
       </div>
 
-      <Card className="shadow-md border-purple-100">
-        <CardHeader className="bg-white border-b pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-purple-600" /> Linha do Tempo de Edições
+      <Card className="shadow-md border-purple-100 dark:border-slate-800 dark:bg-slate-900">
+        <CardHeader className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 pb-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
+            <ClipboardList className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Linha do Tempo de Edições
           </CardTitle>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={fetchLogs} 
             disabled={isLoading}
-            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+            className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-slate-800"
           >
             <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -152,22 +152,22 @@ export default function SystemLogs() {
               </div>
             ) : (
               <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
-                  <TableRow>
-                    <TableHead className="w-[180px]"><Clock className="w-4 h-4 mr-1 inline" /> Data/Hora</TableHead>
-                    <TableHead className="w-[150px]"><User className="w-4 h-4 mr-1 inline" /> Usuário</TableHead>
-                    <TableHead className="w-[120px]"><Info className="w-4 h-4 mr-1 inline" /> Categoria</TableHead>
-                    <TableHead>Ação e Detalhes</TableHead>
+                <TableHeader className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10 shadow-sm">
+                  <TableRow className="dark:border-slate-800">
+                    <TableHead className="w-[180px] dark:text-slate-300"><Clock className="w-4 h-4 mr-1 inline" /> Data/Hora</TableHead>
+                    <TableHead className="w-[150px] dark:text-slate-300"><User className="w-4 h-4 mr-1 inline" /> Usuário</TableHead>
+                    <TableHead className="w-[120px] dark:text-slate-300"><Info className="w-4 h-4 mr-1 inline" /> Categoria</TableHead>
+                    <TableHead className="dark:text-slate-300">Ação e Detalhes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLogs.map((log, index) => (
-                    <TableRow key={log.id || index} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="text-xs font-mono text-slate-500">
+                    <TableRow key={log.id || index} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors dark:border-slate-800">
+                      <TableCell className="text-xs font-mono text-slate-500 dark:text-slate-400">
                         {log.created_at ? format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR }) : '-'}
                       </TableCell>
                       <TableCell>
-                        <span className="font-bold text-slate-700 uppercase tracking-tight text-xs bg-slate-100 px-2 py-1 rounded">
+                        <span className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                           {log.username}
                         </span>
                       </TableCell>
@@ -175,8 +175,8 @@ export default function SystemLogs() {
                         {getCategoryBadge(log.category)}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm font-medium text-slate-900">{log.action}</div>
-                        <div className="text-xs text-slate-500 italic mt-0.5">{log.details}</div>
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-200">{log.action}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 italic mt-0.5">{log.details}</div>
                       </TableCell>
                     </TableRow>
                   ))}

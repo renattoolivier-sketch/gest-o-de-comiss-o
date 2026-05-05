@@ -115,11 +115,11 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
   }, [technicians, teams, orders, daysInMonth]);
 
   const getCellColor = (completed: number, total: number, moved: number) => {
-    if (total === 0) return 'bg-slate-50 text-slate-300';
-    if (moved > 0 && completed === 0) return 'bg-indigo-50 text-indigo-600 border-indigo-200';
-    if (completed === 0) return 'bg-purple-50 text-purple-600 border-purple-100';
-    if (completed < total) return 'bg-amber-50 text-amber-600 border-amber-100';
-    return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    if (total === 0) return 'bg-slate-50 dark:bg-slate-800/40 text-slate-300 dark:text-slate-700 border-transparent';
+    if (moved > 0 && completed === 0) return 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50';
+    if (completed === 0) return 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-900/50';
+    if (completed < total) return 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50';
+    return 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50';
   };
 
   const getStatusBadge = (status: Status) => {
@@ -173,30 +173,30 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
             type="month" 
             value={filterMonth} 
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="w-40 bg-white"
+            className="w-40 bg-white dark:bg-slate-900 dark:border-slate-800 dark:text-white"
           />
         </div>
       </div>
 
-      <Card className="overflow-hidden border-slate-200 shadow-sm">
-        <CardHeader className="bg-white border-b py-4">
-          <CardTitle className="text-lg font-semibold text-slate-700">
+      <Card className="overflow-hidden border-slate-200 dark:border-slate-800 shadow-sm dark:bg-slate-900">
+        <CardHeader className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 py-4">
+          <CardTitle className="text-lg font-semibold text-slate-700 dark:text-slate-200">
             Detalhamento — {format(monthDate, 'MMMM yyyy', { locale: ptBR })}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-slate-50 border-r min-w-[200px] font-bold text-slate-700">
+              <TableHeader className="bg-slate-50 dark:bg-slate-800">
+                <TableRow className="dark:border-slate-800">
+                  <TableHead className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 border-r dark:border-slate-700 min-w-[200px] font-bold text-slate-700 dark:text-slate-200">
                     Técnico
                   </TableHead>
                   {daysInMonth.map(day => (
-                    <TableHead key={day.toISOString()} className={`text-center min-w-[80px] p-2 border-r ${isWeekend(day) ? 'bg-slate-100/50' : ''}`}>
+                    <TableHead key={day.toISOString()} className={`text-center min-w-[80px] p-2 border-r dark:border-slate-700 ${isWeekend(day) ? 'bg-slate-100/50 dark:bg-slate-900/50' : ''}`}>
                       <div className="flex flex-col items-center">
-                        <span className="text-xs font-medium text-slate-500">{format(day, 'd')}</span>
-                        <span className={`text-[10px] uppercase font-bold ${isWeekend(day) ? 'text-rose-500' : 'text-slate-400'}`}>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{format(day, 'd')}</span>
+                        <span className={`text-[10px] uppercase font-bold ${isWeekend(day) ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
                           {format(day, 'EEE', { locale: ptBR })}
                         </span>
                       </div>
@@ -206,14 +206,14 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
               </TableHeader>
               <TableBody>
                 {techData.map(tech => (
-                  <TableRow key={tech.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="sticky left-0 z-10 bg-white border-r font-bold text-slate-700 uppercase text-[10px]">
+                  <TableRow key={tech.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                    <TableCell className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r dark:border-slate-700 font-bold text-slate-700 dark:text-slate-300 uppercase text-[10px]">
                       {tech.name}
                     </TableCell>
                     {tech.dailyStats.map(stat => (
                       <TableCell 
                         key={stat.date.toISOString()} 
-                        className={`text-center p-1 border-r cursor-pointer transition-all hover:brightness-95 ${isWeekend(stat.date) ? 'bg-slate-50/30' : ''}`}
+                        className={`text-center p-1 border-r dark:border-slate-700 cursor-pointer transition-all hover:brightness-95 ${isWeekend(stat.date) ? 'bg-slate-50/30 dark:bg-slate-900/30' : ''}`}
                         onClick={() => stat.total > 0 && setSelectedDayDetail({ techId: tech.id, techName: tech.name, date: stat.date })}
                       >
                         <div className={`rounded-md py-1.5 px-1 border flex flex-col items-center justify-center min-h-[45px] ${getCellColor(stat.completed, stat.total, stat.moved)}`}>
@@ -237,24 +237,24 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-6 text-xs text-muted-foreground bg-white p-4 rounded-lg border shadow-sm">
+      <div className="flex flex-wrap items-center gap-6 text-xs text-muted-foreground bg-white dark:bg-slate-900 p-4 rounded-lg border dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-purple-50 border border-purple-100"></div>
+          <div className="w-3 h-3 rounded bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-900/50"></div>
           <span>Nenhuma fechada</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-amber-50 border border-amber-100"></div>
+          <div className="w-3 h-3 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-900/50"></div>
           <span>Parcial</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-emerald-50 border border-emerald-100"></div>
+          <div className="w-3 h-3 rounded bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-900/50"></div>
           <span>Todas fechadas</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-indigo-50 border border-indigo-200"></div>
+          <div className="w-3 h-3 rounded bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-900/50"></div>
           <span>Contém Movidas</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 italic">
+        <div className="ml-auto flex items-center gap-2 italic text-[10px]">
           <Info className="w-3 h-3 text-purple-500" />
           <span>Clique numa célula para ver e gerenciar as O.S. do dia</span>
         </div>
@@ -262,23 +262,23 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
 
       {/* Day Detail Dialog */}
       <Dialog open={!!selectedDayDetail} onOpenChange={(open) => !open && setSelectedDayDetail(null)}>
-        <DialogContent className="sm:max-w-[1000px] max-h-[85vh] flex flex-col p-6">
+        <DialogContent className="sm:max-w-[1000px] max-h-[85vh] flex flex-col p-6 dark:bg-slate-900 dark:border-slate-800">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-purple-600" /> 
+            <DialogTitle className="flex items-center gap-2 dark:text-white">
+              <FileSpreadsheet className="w-5 h-5 text-purple-600 dark:text-purple-400" /> 
               O.S. do Dia {selectedDayDetail && format(selectedDayDetail.date, 'dd/MM/yyyy')} — {selectedDayDetail?.techName}
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <div className="rounded-md border overflow-hidden">
+            <div className="rounded-md border dark:border-slate-800 overflow-hidden">
               <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead>Protocolo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Observação</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                <TableHeader className="bg-muted/50 dark:bg-slate-800">
+                  <TableRow className="dark:border-slate-800">
+                    <TableHead className="dark:text-slate-300">Protocolo</TableHead>
+                    <TableHead className="dark:text-slate-300">Status</TableHead>
+                    <TableHead className="dark:text-slate-300">Descrição</TableHead>
+                    <TableHead className="dark:text-slate-300">Observação</TableHead>
+                    <TableHead className="text-right dark:text-slate-300">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -317,11 +317,11 @@ export default function MonthlySpreadsheet({ technicians, teams, orders, onUpdat
                       }
                       
                       return (
-                        <TableRow key={order.protocol} className={isMovedFromThisDay ? "bg-indigo-50/50" : ""}>
-                          <TableCell className="font-mono text-xs font-bold">
+                        <TableRow key={order.protocol} className={`dark:border-slate-800 ${isMovedFromThisDay ? "bg-indigo-50/50 dark:bg-indigo-900/10" : ""}`}>
+                          <TableCell className="font-mono text-xs font-bold dark:text-slate-300">
                             <div className="flex items-center gap-2">
                               {order.protocol}
-                              {isMovedFromThisDay && <Badge variant="outline" className="text-[8px] h-4 bg-indigo-100 text-indigo-700 border-indigo-200">MOVIDA</Badge>}
+                              {isMovedFromThisDay && <Badge variant="outline" className="text-[8px] h-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">MOVIDA</Badge>}
                             </div>
                           </TableCell>
                           <TableCell>{getStatusBadge(order.status)}</TableCell>
