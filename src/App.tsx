@@ -193,13 +193,40 @@ export default function App() {
       const [techRes, teamRes, orderRes, slaRes, confRes, vacRes] = results;
       
       const fetchErrors = [];
-      if (techRes.status === 'fulfilled' && techRes.value.error) fetchErrors.push(techRes.value.error.message);
-      if (teamRes.status === 'fulfilled' && teamRes.value.error) fetchErrors.push(teamRes.value.error.message);
-      if (orderRes.status === 'fulfilled' && orderRes.value.error) fetchErrors.push(orderRes.value.error.message);
+      const tableMissingErrors: string[] = [];
 
-      if (fetchErrors.length > 0) {
-        console.warn('Supabase fetch failure details:', fetchErrors);
-        setDbError(`Erro: ${fetchErrors[0]}`);
+      const checkError = (res: any, name: string) => {
+        if (res.status === 'fulfilled' && res.value.error) {
+          if (res.value.error.message.includes('Could not find the table')) {
+            tableMissingErrors.push(name);
+            return false;
+          }
+          fetchErrors.push(`${name}: ${res.value.error.message}`);
+          return true;
+        }
+        if (res.status === 'rejected') {
+          fetchErrors.push(`Conexão ${name} falhou`);
+          return true;
+        }
+        return false;
+      };
+
+      checkError(techRes, 'Técnicos');
+      checkError(teamRes, 'Equipes');
+      checkError(orderRes, 'O.S.');
+      checkError(slaRes, 'SLA');
+      checkError(confRes, 'Conformidade');
+      checkError(vacRes, 'Férias');
+
+      if (tableMissingErrors.length > 0) {
+        console.warn('Tabelas ausentes no Supabase:', tableMissingErrors);
+        const warning = `Aviso: As tabelas [${tableMissingErrors.join(', ')}] não foram encontradas. Vá em "Equipes e Técnicos > Configurar Banco" e execute o script SQL atualizado no Supabase.`;
+        setDbError(warning);
+      } else if (fetchErrors.length > 0) {
+        console.error('Supabase fetch failure details:', fetchErrors);
+        setDbError(`Erro ao buscar dados: ${fetchErrors.join(' | ')}`);
+      } else {
+        setDbError(null);
       }
 
       const techData = techRes.status === 'fulfilled' && !techRes.value.error 
@@ -326,17 +353,23 @@ export default function App() {
       const savedTeams = localStorage.getItem('telecom_teams');
       const savedOrders = localStorage.getItem('telecom_orders');
       const savedSla = localStorage.getItem('telecom_monthly_sla');
+      const savedConf = localStorage.getItem('telecom_monthly_conformity');
+      const savedVac = localStorage.getItem('telecom_monthly_vacation');
 
       setTechnicians(savedTechs ? JSON.parse(savedTechs) : INITIAL_TECHS);
       setTeams(savedTeams ? JSON.parse(savedTeams) : INITIAL_TEAMS);
       setOrders(savedOrders ? JSON.parse(savedOrders) : INITIAL_ORDERS);
       setMonthlySla(savedSla ? JSON.parse(savedSla) : {});
+      setMonthlyConformity(savedConf ? JSON.parse(savedConf) : {});
+      setMonthlyVacation(savedVac ? JSON.parse(savedVac) : {});
     } catch (e) {
       console.error('Error loading fallback data:', e);
       setTechnicians(INITIAL_TECHS);
       setTeams(INITIAL_TEAMS);
       setOrders(INITIAL_ORDERS);
       setMonthlySla({});
+      setMonthlyConformity({});
+      setMonthlyVacation({});
     }
   };
 
@@ -724,6 +757,8 @@ export default function App() {
 
   const handleUpdateVacation = async (month: string, techId: string, value: boolean) => {
     const techName = technicians.find(t => t.id === techId)?.name || techId;
+    
+    // Update local state first for responsiveness
     setMonthlyVacation(prev => ({
       ...prev,
       [month]: {
@@ -731,17 +766,32 @@ export default function App() {
         [techId]: value
       }
     }));
-    saveLog({
-      username: user?.username || 'Sistema',
-      action: value ? 'Técnico em Férias' : 'Técnico retornou de Férias',
-      details: `Técnico: ${techName} | Mês: ${month}`,
-      category: 'Sistema'
-    });
-    await supabase.from('monthly_vacation').upsert({
-      month,
-      tech_id: techId,
-      is_vacation: value
-    }, { onConflict: 'month,tech_id' });
+
+    try {
+      const { error } = await supabase.from('monthly_vacation').upsert({
+        month,
+        tech_id: techId,
+        is_vacation: value
+      }, { onConflict: 'month,tech_id' });
+      
+      if (error) {
+        console.error('Erro ao salvar férias no Supabase:', error);
+        alert(`Erro ao salvar status de férias: ${error.message}`);
+        // Refresh to revert to DB state if failed
+        fetchData(false);
+      } else {
+        saveLog({
+          username: user?.username || 'Sistema',
+          action: value ? 'Técnico em Férias' : 'Técnico retornou de Férias',
+          details: `Técnico: ${techName} | Mês: ${month}`,
+          category: 'Sistema'
+        });
+      }
+    } catch (e: any) {
+      console.error('Exceção ao salvar férias:', e);
+      alert(`Erro inesperado: ${e.message}`);
+      fetchData(false);
+    }
   };
 
   const saveLog = async (log: Omit<SystemLog, 'id' | 'created_at'>) => {
