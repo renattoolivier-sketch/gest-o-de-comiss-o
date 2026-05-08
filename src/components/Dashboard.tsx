@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ServiceOrder, Technician, Team, Status, UserRole } from '@/src/types';
 import MonthlySpreadsheet from './MonthlySpreadsheet';
-import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock, CalendarDays, Search, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, Clock, XCircle, PlayCircle, BarChart3, ArrowRightCircle, AlertTriangle, Lock, CalendarDays, Search, User, Filter } from 'lucide-react';
 import { format, parseISO, isSameMonth, addDays, getHours } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -32,6 +32,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
+  const [techFilterId, setTechFilterId] = useState<string>('all');
   const [selectedResponsible, setSelectedResponsible] = useState<{ id: string, name: string, date?: string } | null>(null);
 
   // Form State
@@ -138,7 +139,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
   }, [filteredOrders, filterMonth]);
 
   const responsibleSummary = useMemo(() => {
-    const summary: Record<string, Record<string, { total: number, completed: number, remaining: number, moved: number, delayed: number }>> = {};
+    const summary: Record<string, Record<string, { total: number, completed: number, remaining: number, moved: number, delayed: number, completedDelayed: number }>> = {};
     
     filteredOrders.forEach(order => {
       const datesToProcess = new Set<string>();
@@ -154,7 +155,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
           if (format(parsedDate, 'yyyy-MM') === filterMonth) {
             if (!summary[date]) summary[date] = {};
             if (!summary[date][order.responsibleId]) {
-              summary[date][order.responsibleId] = { total: 0, completed: 0, remaining: 0, moved: 0, delayed: 0 };
+              summary[date][order.responsibleId] = { total: 0, completed: 0, remaining: 0, moved: 0, delayed: 0, completedDelayed: 0 };
             }
 
             const isOriginalDay = date === order.originalOpeningDate && date !== order.openingDate;
@@ -173,6 +174,9 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
 
             if (isClosingDay) {
               summary[date][order.responsibleId].completed++;
+              if (order.isDelayed) {
+                summary[date][order.responsibleId].completedDelayed++;
+              }
             } else if (isScheduledDay && order.status !== 'Concluída' && order.status !== 'Cancelada') {
               summary[date][order.responsibleId].remaining++;
             }
@@ -194,6 +198,8 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
     const result: any[] = [];
     Object.entries(summary).forEach(([date, responsibles]) => {
       Object.entries(responsibles).forEach(([id, data]) => {
+        if (techFilterId !== 'all' && id !== techFilterId) return;
+
         const respInfo = getResponsibleName(id);
         result.push({
           date,
@@ -210,7 +216,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
       if (b.date !== a.date) return b.date.localeCompare(a.date);
       return b.total - a.total;
     });
-  }, [filteredOrders, technicians, teams, filterMonth]);
+  }, [filteredOrders, technicians, teams, filterMonth, techFilterId]);
 
   const chartData = useMemo(() => {
     return [
@@ -549,12 +555,67 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
         </Card>
 
         <Card className="lg:col-span-3 dark:bg-slate-900 dark:border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 dark:text-white">
               <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Resumo por Responsável
             </CardTitle>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Filter className="w-4 h-4 text-slate-400" />
+              <Select value={techFilterId} onValueChange={setTechFilterId}>
+                <SelectTrigger className="w-full sm:w-48 h-8 text-xs dark:bg-slate-800 dark:border-slate-700">
+                  <SelectValue placeholder="Filtrar por Técnico" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-slate-900 dark:border-slate-800">
+                  <SelectItem value="all">Todos os Responsáveis</SelectItem>
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-muted-foreground bg-slate-50 dark:bg-slate-800/50">Técnicos</div>
+                  {technicians.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-muted-foreground bg-slate-50 dark:bg-slate-800/50">Equipes</div>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={t.id}>Equipe: {t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
+            {techFilterId !== 'all' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                {(() => {
+                  const filtered = responsibleSummary;
+                  const totals = filtered.reduce((acc, curr) => ({
+                    completed: acc.completed + curr.completed,
+                    moved: acc.moved + curr.moved,
+                    completedDelayed: acc.completedDelayed + curr.completedDelayed,
+                    total: acc.total + curr.total
+                  }), { completed: 0, moved: 0, completedDelayed: 0, total: 0 });
+                  
+                  return (
+                    <>
+                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg text-center">
+                        <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Total Feitas</p>
+                        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{totals.completed}</p>
+                      </div>
+                      <div className="p-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-lg text-center">
+                        <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase">Total Remarcadas</p>
+                        <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300">{totals.moved}</p>
+                      </div>
+                      <div className="p-2 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-lg text-center">
+                        <p className="text-[9px] text-rose-600 dark:text-rose-400 font-bold uppercase">Feitas em Atraso</p>
+                        <p className="text-lg font-bold text-rose-700 dark:text-rose-300">{totals.completedDelayed}</p>
+                      </div>
+                      <div className="p-2 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-lg text-center">
+                        <p className="text-[9px] text-purple-600 dark:text-purple-400 font-bold uppercase">% Média</p>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                          {totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0}%
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
             <div className="rounded-md border dark:border-slate-800 overflow-hidden max-h-[400px] overflow-y-auto">
               <Table>
                 <TableHeader className="bg-muted/50 dark:bg-slate-800 sticky top-0 z-10 shadow-sm">
@@ -563,9 +624,9 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                     <TableHead className="bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Responsável / Membros</TableHead>
                     <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Total O.S.</TableHead>
                     <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Concluídas</TableHead>
-                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Movidas</TableHead>
-                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Atrasos</TableHead>
-                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Restantes</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Remarcadas</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Atrasadas</TableHead>
+                    <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">F. Atraso</TableHead>
                     <TableHead className="text-center bg-muted/50 dark:bg-slate-800 dark:text-slate-300">% Prod.</TableHead>
                     <TableHead className="text-right bg-muted/50 dark:bg-slate-800 dark:text-slate-300">Ações</TableHead>
                   </TableRow>
@@ -608,7 +669,7 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                         <TableCell className="text-center text-emerald-600 dark:text-emerald-400 font-bold">{item.completed}</TableCell>
                         <TableCell className="text-center text-indigo-600 dark:text-indigo-400 font-bold">{item.moved}</TableCell>
                         <TableCell className="text-center text-rose-600 dark:text-rose-400 font-bold">{item.delayed}</TableCell>
-                        <TableCell className="text-center text-amber-600 dark:text-amber-400 font-bold">{item.remaining}</TableCell>
+                        <TableCell className="text-center text-rose-500 font-medium text-[10px]">{item.completedDelayed}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">
                             <span className={`text-xs font-bold ${item.percentage >= 100 ? 'text-emerald-600 dark:text-emerald-400' : item.percentage > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`}>
@@ -623,8 +684,8 @@ export default function Dashboard({ orders, technicians, teams, onAddOrder, onUp
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="text-purple-600 dark:text-purple-400">
-                            Ver Detalhes
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600 dark:text-purple-400">
+                            <ArrowRightCircle className="w-4 h-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
