@@ -18,6 +18,8 @@ interface CommissionsProps {
   onUpdateSla: (month: string, techId: string, value: number) => void;
   monthlyConformity: Record<string, Record<string, number>>;
   onUpdateConformity: (month: string, techId: string, value: number) => void;
+  monthlyVacation: Record<string, Record<string, boolean>>;
+  onUpdateVacation: (month: string, techId: string, value: boolean) => void;
   currentMonth: string; // yyyy-MM
   userRole?: UserRole;
 }
@@ -39,6 +41,7 @@ export default function Commissions({
   technicians, teams, orders, 
   monthlySla, onUpdateSla, 
   monthlyConformity, onUpdateConformity,
+  monthlyVacation, onUpdateVacation,
   currentMonth: initialMonth, userRole 
 }: CommissionsProps) {
   const isAdmin = userRole === 'admin';
@@ -48,11 +51,14 @@ export default function Commissions({
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const commissionData = useMemo(() => {
-    const results: CommissionResult[] = [];
+    const results: (CommissionResult & { isVacation: boolean })[] = [];
     const monthSlas = monthlySla[selectedMonth] || {};
     const monthConfs = monthlyConformity[selectedMonth] || {};
+    const monthVacations = monthlyVacation[selectedMonth] || {};
 
     technicians.forEach(tech => {
+      const isVacation = monthVacations[tech.id] || false;
+      
       // Find teams this tech belongs to
       const techTeamsDetailed = teams.filter(t => t.memberIds.includes(tech.id));
       const techTeamsIds = techTeamsDetailed.map(t => t.id);
@@ -131,7 +137,8 @@ export default function Commissions({
           weightedSLA: 0,
           weightedConformity: 0,
           totalTeamCommission: fixed,
-          finalCommission: fixed
+          finalCommission: fixed,
+          isVacation
         });
         return;
       }
@@ -196,21 +203,22 @@ export default function Commissions({
         weightedSLA,
         weightedConformity,
         totalTeamCommission,
-        finalCommission
+        finalCommission,
+        isVacation
       });
     });
 
     return results;
-  }, [technicians, teams, orders, selectedMonth, monthlySla, monthlyConformity]);
+  }, [technicians, teams, orders, selectedMonth, monthlySla, monthlyConformity, monthlyVacation]);
 
   const totals = useMemo(() => {
-    const comDataForAvg = commissionData.filter(c => c.category !== 'Manutenção');
+    const comDataForAvg = commissionData.filter(c => c.category !== 'Manutenção' && !c.isVacation);
     return {
-      totalCommission: commissionData.reduce((acc, curr) => acc + curr.finalCommission, 0),
+      totalCommission: commissionData.reduce((acc, curr) => curr.isVacation ? acc : acc + curr.finalCommission, 0),
       avgProductivity: comDataForAvg.length > 0 
         ? comDataForAvg.reduce((acc, curr) => acc + curr.productivity, 0) / comDataForAvg.length 
         : 0,
-      eligibleCount: commissionData.filter(c => c.finalCommission > 0).length
+      eligibleCount: commissionData.filter(c => c.finalCommission > 0 && !c.isVacation).length
     };
   }, [commissionData]);
 
@@ -298,6 +306,7 @@ export default function Commissions({
               <TableHeader className="bg-muted/50 dark:bg-slate-800">
                 <TableRow className="dark:border-slate-800">
                   <TableHead className="dark:text-slate-300">Técnico</TableHead>
+                  <TableHead className="text-center dark:text-slate-300">Férias</TableHead>
                   <TableHead className="text-center dark:text-slate-300">Categoria</TableHead>
                   <TableHead className="text-center dark:text-slate-300">Produtividade (60%)</TableHead>
                   <TableHead className="text-center dark:text-slate-300">SLA (25%)</TableHead>
@@ -307,13 +316,13 @@ export default function Commissions({
               </TableHeader>
               <TableBody>
                 {commissionData.map((data) => (
-                  <TableRow key={data.technicianId} className="dark:border-slate-800">
+                  <TableRow key={data.technicianId} className={`dark:border-slate-800 ${data.isVacation ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}>
                     <TableCell>
                       <button 
                         onClick={() => setSelectedTechId(data.technicianId)}
                         className="text-left group"
                       >
-                        <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors uppercase tracking-tight">
+                        <div className={`font-bold ${data.isVacation ? 'text-slate-400 dark:text-slate-600 line-through' : 'text-slate-800 dark:text-slate-200'} group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors uppercase tracking-tight`}>
                           {data.technicianName}
                         </div>
                         <div className="text-[10px] text-muted-foreground dark:text-slate-500 flex items-center gap-1">
@@ -322,10 +331,21 @@ export default function Commissions({
                       </button>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className="text-[10px] font-bold uppercase dark:text-slate-400 dark:border-slate-700">{data.category}</Badge>
+                      <input 
+                        type="checkbox"
+                        checked={data.isVacation}
+                        onChange={(e) => onUpdateVacation(selectedMonth, data.technicianId, e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        disabled={!isAdmin}
+                      />
                     </TableCell>
                     <TableCell className="text-center">
-                      {data.category === 'Manutenção' ? (
+                      <Badge variant="outline" className={`text-[10px] font-bold uppercase dark:border-slate-700 ${data.isVacation ? 'text-slate-400 border-slate-200' : 'dark:text-slate-400'}`}>{data.category}</Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {data.isVacation ? (
+                        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[9px]">EM FÉRIAS</Badge>
+                      ) : data.category === 'Manutenção' ? (
                         <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <>
@@ -337,7 +357,9 @@ export default function Commissions({
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      {data.category === 'Manutenção' ? (
+                      {data.isVacation ? (
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
+                      ) : data.category === 'Manutenção' ? (
                         <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
@@ -356,7 +378,9 @@ export default function Commissions({
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      {data.category === 'Manutenção' ? (
+                      {data.isVacation ? (
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
+                      ) : data.category === 'Manutenção' ? (
                         <div className="text-xs font-bold text-slate-400 dark:text-slate-600">-</div>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
@@ -375,7 +399,7 @@ export default function Commissions({
                       )}
                     </TableCell>
                     <TableCell className="text-right font-bold text-purple-700 dark:text-purple-400">
-                      R$ {(data.finalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {data.isVacation ? 'R$ 0,00' : `R$ ${(data.finalCommission || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                     </TableCell>
                   </TableRow>
                 ))}

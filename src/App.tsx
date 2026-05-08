@@ -42,6 +42,7 @@ export default function App() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [monthlySla, setMonthlySla] = useState<Record<string, Record<string, number>>>({});
   const [monthlyConformity, setMonthlyConformity] = useState<Record<string, Record<string, number>>>({});
+  const [monthlyVacation, setMonthlyVacation] = useState<Record<string, Record<string, boolean>>>({});
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
@@ -66,7 +67,7 @@ export default function App() {
   });
 
   // Shared Migration Function
-  const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any, conformity: any = {}) => {
+  const migrateToSupabase = async (techs: Technician[], teams: Team[], orders: ServiceOrder[], sla: any, conformity: any = {}, vacation: any = {}) => {
     try {
       console.log('Iniciando migração para Supabase...', { techs: techs.length, teams: teams.length, orders: orders.length });
       
@@ -128,6 +129,17 @@ export default function App() {
         const { error } = await supabase.from('monthly_conformity').upsert(confEntries);
         if (error) throw new Error(`Conformidade: ${error.message}`);
       }
+
+      const vacEntries: any[] = [];
+      Object.entries(vacation).forEach(([month, techs]: [string, any]) => {
+        Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+          vacEntries.push({ month, tech_id: techId, is_vacation: value });
+        });
+      });
+      if (vacEntries.length > 0) {
+        const { error } = await supabase.from('monthly_vacation').upsert(vacEntries);
+        if (error) throw new Error(`Férias: ${error.message}`);
+      }
       
       setIsOnline(true);
       return { success: true };
@@ -174,10 +186,11 @@ export default function App() {
         supabase.from('teams').select('*'),
         supabase.from('service_orders').select('*').order('openingDate', { ascending: false }),
         supabase.from('monthly_sla').select('*'),
-        supabase.from('monthly_conformity').select('*')
+        supabase.from('monthly_conformity').select('*'),
+        supabase.from('monthly_vacation').select('*')
       ]);
 
-      const [techRes, teamRes, orderRes, slaRes, confRes] = results;
+      const [techRes, teamRes, orderRes, slaRes, confRes, vacRes] = results;
       
       const fetchErrors = [];
       if (techRes.status === 'fulfilled' && techRes.value.error) fetchErrors.push(techRes.value.error.message);
@@ -224,6 +237,7 @@ export default function App() {
         : [];
       const slaData = slaRes.status === 'fulfilled' && !slaRes.value.error ? slaRes.value.data : [];
       const confData = confRes.status === 'fulfilled' && !confRes.value.error ? confRes.value.data : [];
+      const vacData = vacRes.status === 'fulfilled' && !vacRes.value.error ? vacRes.value.data : [];
 
       // 2. Use Supabase data (even if some tables are empty)
       setTechnicians(techData || []);
@@ -246,6 +260,14 @@ export default function App() {
       });
       setMonthlyConformity(confObj);
 
+      // Reconstruct Vacation object
+      const vacObj: Record<string, Record<string, boolean>> = {};
+      vacData?.forEach((item: any) => {
+        if (!vacObj[item.month]) vacObj[item.month] = {};
+        vacObj[item.month][item.tech_id] = item.is_vacation;
+      });
+      setMonthlyVacation(vacObj);
+
       setIsOnline(true);
       if (fetchErrors.length === 0) setDbError(null);
 
@@ -260,13 +282,15 @@ export default function App() {
             const initialOrders = JSON.parse(localStorage.getItem('telecom_orders') || '[]');
             const initialSla = JSON.parse(localStorage.getItem('telecom_monthly_sla') || '{}');
             const initialConf = JSON.parse(localStorage.getItem('telecom_monthly_conformity') || '{}');
+            const initialVac = JSON.parse(localStorage.getItem('telecom_monthly_vacation') || '{}');
             
             setTechnicians(initialTechs);
             setTeams(initialTeams);
             setOrders(initialOrders);
             setMonthlySla(initialSla);
             setMonthlyConformity(initialConf);
-            await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla, initialConf);
+            setMonthlyVacation(initialVac);
+            await migrateToSupabase(initialTechs, initialTeams, initialOrders, initialSla, initialConf, initialVac);
           } catch (e) {
             console.error('Error migrating local data:', e);
           }
@@ -443,6 +467,25 @@ export default function App() {
       })
       .subscribe((status) => console.log('Status Canal Conformidade:', status));
 
+    const vacationChannel = supabase
+      .channel('vacation-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_vacation' }, (payload) => {
+        console.log('Evento Vacation:', payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = payload.new;
+          setMonthlyVacation(prev => ({
+            ...prev,
+            [item.month]: {
+              ...(prev[item.month] || {}),
+              [item.tech_id]: item.is_vacation
+            }
+          }));
+        } else if (payload.eventType === 'DELETE') {
+          fetchData(false);
+        }
+      })
+      .subscribe((status) => console.log('Status Canal Férias:', status));
+
     return () => {
       console.log('Limpando canais Realtime...');
       supabase.removeAllChannels();
@@ -457,8 +500,9 @@ export default function App() {
       localStorage.setItem('telecom_orders', JSON.stringify(orders));
       localStorage.setItem('telecom_monthly_sla', JSON.stringify(monthlySla));
       localStorage.setItem('telecom_monthly_conformity', JSON.stringify(monthlyConformity));
+      localStorage.setItem('telecom_monthly_vacation', JSON.stringify(monthlyVacation));
     }
-  }, [technicians, teams, orders, monthlySla, monthlyConformity, isLoading]);
+  }, [technicians, teams, orders, monthlySla, monthlyConformity, monthlyVacation, isLoading]);
 
   // Handlers with Supabase Sync
   const onAddOrder = async (order: ServiceOrder) => {
@@ -678,6 +722,28 @@ export default function App() {
     }, { onConflict: 'month,tech_id' });
   };
 
+  const handleUpdateVacation = async (month: string, techId: string, value: boolean) => {
+    const techName = technicians.find(t => t.id === techId)?.name || techId;
+    setMonthlyVacation(prev => ({
+      ...prev,
+      [month]: {
+        ...(prev[month] || {}),
+        [techId]: value
+      }
+    }));
+    saveLog({
+      username: user?.username || 'Sistema',
+      action: value ? 'Técnico em Férias' : 'Técnico retornou de Férias',
+      details: `Técnico: ${techName} | Mês: ${month}`,
+      category: 'Sistema'
+    });
+    await supabase.from('monthly_vacation').upsert({
+      month,
+      tech_id: techId,
+      is_vacation: value
+    }, { onConflict: 'month,tech_id' });
+  };
+
   const saveLog = async (log: Omit<SystemLog, 'id' | 'created_at'>) => {
     try {
       await supabase.from('system_logs').insert([log]);
@@ -731,6 +797,7 @@ export default function App() {
       // Clear Supabase tables
       await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
       await supabase.from('monthly_conformity').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      await supabase.from('monthly_vacation').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
       await supabase.from('service_orders').delete().neq('protocol', ''); 
       await supabase.from('teams').delete().neq('id', ''); 
       await supabase.from('technicians').delete().neq('id', ''); 
@@ -755,6 +822,8 @@ export default function App() {
         teams,
         orders,
         monthlySla,
+        monthlyConformity,
+        monthlyVacation,
         timestamp: new Date().toISOString()
       };
 
@@ -813,6 +882,8 @@ export default function App() {
 
       // Clear current data first
       await supabase.from('monthly_sla').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('monthly_conformity').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('monthly_vacation').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('service_orders').delete().neq('protocol', '');
       await supabase.from('teams').delete().neq('id', '');
       await supabase.from('technicians').delete().neq('id', '');
@@ -829,6 +900,26 @@ export default function App() {
         });
       });
       if (slaEntries.length > 0) await supabase.from('monthly_sla').insert(slaEntries);
+
+      const confEntries: any[] = [];
+      if (backup.monthlyConformity) {
+        Object.entries(backup.monthlyConformity).forEach(([month, techs]: [string, any]) => {
+          Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+            confEntries.push({ month, tech_id: techId, value });
+          });
+        });
+      }
+      if (confEntries.length > 0) await supabase.from('monthly_conformity').insert(confEntries);
+
+      const vacEntries: any[] = [];
+      if (backup.monthlyVacation) {
+        Object.entries(backup.monthlyVacation).forEach(([month, techs]: [string, any]) => {
+          Object.entries(techs).forEach(([techId, value]: [string, any]) => {
+            vacEntries.push({ month, tech_id: techId, is_vacation: value });
+          });
+        });
+      }
+      if (vacEntries.length > 0) await supabase.from('monthly_vacation').insert(vacEntries);
 
       alert('Backup restaurado com sucesso! A página será recarregada.');
       window.location.reload();
@@ -848,6 +939,7 @@ export default function App() {
       const savedOrdersStr = localStorage.getItem('telecom_orders');
       const savedSlaStr = localStorage.getItem('telecom_monthly_sla');
       const savedConfStr = localStorage.getItem('telecom_monthly_conformity');
+      const savedVacStr = localStorage.getItem('telecom_monthly_vacation');
 
       if (!savedTechsStr && !savedTeamsStr && !savedOrdersStr) {
         alert('Não há dados locais para sincronizar.');
@@ -860,8 +952,9 @@ export default function App() {
       const savedOrders = JSON.parse(savedOrdersStr || '[]');
       const savedSla = JSON.parse(savedSlaStr || '{}');
       const savedConf = JSON.parse(savedConfStr || '{}');
+      const savedVac = JSON.parse(savedVacStr || '{}');
       
-      const result = await migrateToSupabase(savedTechs, savedTeams, savedOrders, savedSla, savedConf);
+      const result = await migrateToSupabase(savedTechs, savedTeams, savedOrders, savedSla, savedConf, savedVac);
       
       if (result.success) {
         alert('Sincronização concluída com sucesso!');
@@ -1033,6 +1126,8 @@ export default function App() {
               onUpdateSla={handleUpdateSla}
               monthlyConformity={monthlyConformity}
               onUpdateConformity={handleUpdateConformity}
+              monthlyVacation={monthlyVacation}
+              onUpdateVacation={handleUpdateVacation}
               currentMonth={format(new Date(), 'yyyy-MM')}
               userRole={user.role}
             />

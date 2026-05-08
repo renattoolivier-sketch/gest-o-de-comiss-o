@@ -250,6 +250,15 @@ CREATE TABLE IF NOT EXISTS public.monthly_conformity (
   UNIQUE(month, tech_id)
 );
 
+-- 6.1 Tabela de Férias Mensal
+CREATE TABLE IF NOT EXISTS public.monthly_vacation (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  month TEXT NOT NULL,
+  tech_id TEXT NOT NULL,
+  is_vacation BOOLEAN DEFAULT FALSE,
+  UNIQUE(month, tech_id)
+);
+
 -- 7. Tabela de Backups
 CREATE TABLE IF NOT EXISTS public.system_backups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -273,6 +282,7 @@ ALTER TABLE public.teams DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.service_orders DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.monthly_sla DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.monthly_conformity DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_vacation DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_backups DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_logs DISABLE ROW LEVEL SECURITY;
@@ -283,6 +293,7 @@ ALTER TABLE public.teams REPLICA IDENTITY FULL;
 ALTER TABLE public.service_orders REPLICA IDENTITY FULL;
 ALTER TABLE public.monthly_sla REPLICA IDENTITY FULL;
 ALTER TABLE public.monthly_conformity REPLICA IDENTITY FULL;
+ALTER TABLE public.monthly_vacation REPLICA IDENTITY FULL;
 
 -- 11. HABILITAR PUBLICAÇÃO REALTIME
 -- Nota: Se o Supabase reclamar que a publicação já existe como 'FOR ALL TABLES', ignore esta parte.
@@ -294,7 +305,7 @@ BEGIN
     -- Tenta adicionar as tabelas individualmente se não for 'FOR ALL TABLES'
     -- Se for 'FOR ALL TABLES', o comando abaixo falhará mas o Realtime continuará funcionando.
     BEGIN
-      ALTER PUBLICATION supabase_realtime ADD TABLE technicians, teams, service_orders, monthly_sla, monthly_conformity;
+      ALTER PUBLICATION supabase_realtime ADD TABLE technicians, teams, service_orders, monthly_sla, monthly_conformity, monthly_vacation;
     EXCEPTION WHEN others THEN
       RAISE NOTICE 'Publicação já configurada para TODAS as tabelas.';
     END;
